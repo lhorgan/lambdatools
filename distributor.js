@@ -27,13 +27,16 @@ class Distributor {
         if(nextJob === null) {
           break;
         }
-        jobsArray.push({"job": nextJob, "id": this.randomString(), "lambdaName": this.randomChoice(this.lambdaNames)});
+        jobsArray.push({"job": nextJob.job, 
+                        "metadata": nextJob.metadata, 
+                        "id": this.randomString(), 
+                        "lambdaName": this.randomChoice(this.lambdaNames)});
       }
       this.distributeJobs(relayIndex, jobsArray);
     }, 1000 / this.relayURLs.length);
   }
 
-  distributeJobs(jobsArray) {
+  distributeJobs(jobsArray, relayIndex) {
     fetch(this.relayAddreses[relayIndex] + "/jobs", {
             method: "post",
             body: urls,
@@ -48,6 +51,13 @@ class Distributor {
             console.log(err);
             console.log("Something seems to have gone wrong...");
         });
+  }
+
+  handleErrors(response) {
+    if(!response.ok) {
+      throw Error(response.statusText);
+    }
+    return response;
   }
 
   processCompletedJobs(data) {
@@ -74,14 +84,14 @@ class Distributor {
   // job is the job itself, what you want sent to be processed
   // metadata is any information you want to be associated with the job
   addJob(job, metadata) {
-
+    this.client.lpush("jobs", {"job": job, "metadata": metadata});
   }
 
   start() {
-
+    this.mainLoop();
   }
 
   stop() {
-
+    console.log("Not yet... sorry");
   }
 }
