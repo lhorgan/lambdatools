@@ -63,29 +63,32 @@ class LambdaLauncher {
   }
 
   launch(region, S3BucketName, S3KeyName, config) {
-    console.log("Attempting to launch " + name);
-    AWS.config.update({region: region});
-    let lambda = new AWS.Lambda();
-
-    var params = {
-      Code: {
-          //ZipFile: fs.readFileSync("lambda.zip")
-          S3Bucket: S3BucketName,
-          S3Key: S3KeyName
+    return new Promise((accept, reject) => {
+      AWS.config.update({region: region});
+      let lambda = new AWS.Lambda();
+      
+      var params = {
+        Code: {
+            //ZipFile: fs.readFileSync("lambda.zip")
+            S3Bucket: S3BucketName,
+            S3Key: S3KeyName
+        }
+      };
+      for(let fieldName in config) {
+        params[fieldName] = config[fieldName];
       }
-    };
-    for(let fieldName in config) {
-      params[fieldName] = config[fieldName];
-    }
 
-    lambda.createFunction(params, (err, data) => {
-        if(err) {
+      lambda.createFunction(params, (err, data) => {
+          if(err) {
             console.log(err);
             console.log("Failed to launch " + name);
-        }
-        else {
+            reject(err);
+          }
+          else {
             console.log("Launched " + name);
-        }
+            accept(data);
+          }
+      });
     });
   }
 
