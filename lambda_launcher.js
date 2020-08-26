@@ -25,7 +25,7 @@ class LambdaLauncher {
     //   console.log("Success!");
     // }
 
-    let res = await this.listFunctionsHelper("us-east-1", {});
+    let res = await this.listFunctions("hi", "eu-west-1");
     console.log(res);
   }
 
@@ -110,16 +110,20 @@ class LambdaLauncher {
 
   async listFunctions(namespace, region) {
     let nextMarker = null;
+    let params = {};
+    let lambdaNames = [];
 
     do {
       let [functionData, error] = await handle(this.listFunctionsHelper(region, params));
+      lambdaNames = lambdaNames.concat(functionData.lambdaNames);
       if(error) { // reject the promise
         throw new Error(error);
       }
-      nextMarker = functionData.nextToken;
+      nextMarker = functionData.nextMarker;
+      params.Marker = nextMarker;
     } while(nextMarker !== null);
 
-    return true;
+    return lambdaNames;
   }
 
   async listFunctionsHelper(region, params) {
@@ -140,11 +144,18 @@ class LambdaLauncher {
             lambdaNames.push(lambdas[i].FunctionName);
           }
 
-          let nextMarker = data.NextMarker;
+          let nextMarker = this.nullify(data.NextMarker);
           accept({lambdaNames, nextMarker});
         }
       });
     });
+  }
+
+  nullify(result) {
+    if(!result) {
+      return null;
+    }
+    return result;
   }
 
   async zipDirectory(input_path, output) {
