@@ -2,6 +2,8 @@
 
 const { exec } = require("child_process");
 const { stderr } = require("process");
+const util = require('util');
+const fs = require('fs');
 
 // clever pattern from https://dev.to/sobiodarlington/better-error-handling-with-async-await-2e5m
 const handle = (promise) => {
@@ -24,12 +26,37 @@ class LambdaLauncher {
     }
   }
 
-  createBucket(bucketName) {
-
+  createBucket(bucketParams) {
+    return new Promise((resolve, reject) => {
+      s3.createBucket(bucketParams, function(err, data) {
+        if(err) {
+          reject(err);
+        }
+        else {
+          resolve(data);
+        }
+      });
+    });
   }
 
-  uploadFile(path) {
+  uploadFile(path, bucketParams) {
+    return new Promise((resolve, reject) => {
+      //var fileData = Buffer.from(path, "binary");
+      var fileStream = fs.createReadStream(path);
+      fileStream.on('error', function(err) {
+        console.error('File Error', err);
+      });
+      bucketParams.Body = fileStream;
 
+      s3.upload(bucketParams, function(err, data) {
+        if(err) {
+          reject(err);
+        }
+        else {
+          resolve(data);
+        }
+      });
+    });
   }
 
   async zipDirectory(input_path, output) {
