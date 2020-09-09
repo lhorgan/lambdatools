@@ -1,4 +1,11 @@
-const asyncRedis = require("async-redis");
+const redis = require("redis");
+const lineByLine = require('n-readlines');
+const fetch = require('node-fetch');
+const passport = require('passport');
+const { raw } = require("body-parser");
+
+const h = require('./util.js')._Util; // h for helpers
+
 
 class Distributor {
   constructor(config) {
@@ -9,10 +16,15 @@ class Distributor {
     this.relayNames = config.relayNames;
     this.lambdaNames = config.lambdaNames;
     this.jobsPerSecond = config.jobsPerSecond;
-    this.client = asyncRedis.createClient(config.namespace);
+    this.namespace = config.namespace;
+    this.client = redis.createClient();
     this.jobsPerRelay = 50; // jobs per relay per request
 
-    this.relayAddreses = [];
+    this.relayAddresses = ["http://127.0.0.1:8081"];
+
+    this.client.on("error", function (err) {
+      console.error("Error " + err);
+    });
   }
 
   async mainLoop() {
@@ -23,24 +35,31 @@ class Distributor {
     setInterval(async () => {
       // send any jobs that are available, up to 50 per relay
       for(let i = 0; i < this.jobsPerRelay; i++) {
-        let nextJob = await this.client.lpop("jobs");
+        let nextJob = await this.getNextJob();//await h.handle(h.redisLPop(this.client, this.namespace, "jobs"));
         if(nextJob === null) {
           break;
         }
+        
+        if(typeof(this.onNextJob) === "function") {
+          this.onNextJob(nextJob);
+        }
+
         jobsArray.push({"job": nextJob.job, 
                         "metadata": nextJob.metadata, 
                         "id": this.randomString(), 
                         "lambdaName": this.randomChoice(this.lambdaNames)});
       }
-      this.distributeJobs(relayIndex, jobsArray);
-    }, 1000 / this.relayURLs.length);
+      this.distributeJobs(jobsArray, relayIndex);
+      relayIndex = (relayIndex + 1) % this.relayAddresses.length;
+    }, 1000 / this.relayAddresses.length);
   }
 
   distributeJobs(jobsArray, relayIndex) {
-    fetch(this.relayAddreses[relayIndex] + "/jobs", {
-            method: "post",
-            body: urls,
-            headers: { 'Content-Type': 'application/json' }
+    console.log("FETCHING " + this.relayAddresses[relayIndex]);
+    fetch(this.relayAddresses[relayIndex] + "/jobs", {
+          method: "post",
+          body: jobsArray,
+          headers: { 'Content-Type': 'application/json' }
         })
         .then(this.handleErrors)
         .then(response => response.json())
@@ -65,12 +84,27 @@ class Distributor {
   }
 
   async getNextJob() {
-    let job = await this.client.lpop("jobs");
+    let [job, err] = await h.handle(h.redisLPop(this.client, this.namespace, "jobs"));
+    console.log(job);
     
+    if(err) {
+      console.error(err);
+      return null;
+    }
+
     if(job) {
-      this.client.set(job.id, job); // back up the job in case we crash or stop
+      h.redisSet(this.client, this.namespace, job);
     }
     return job;
+  }
+
+  async getJobsCount() {
+    let [count, err] = await h.handle(h.redisLen(this.client, this.namespace, "jobs"));
+    if(err) {
+      console.error(err);
+      return null;
+    }
+    return count;
   }
 
   randomString() {
@@ -84,7 +118,7 @@ class Distributor {
   // job is the job itself, what you want sent to be processed
   // metadata is any information you want to be associated with the job
   addJob(job, metadata) {
-    this.client.lpush("jobs", {"job": job, "metadata": metadata});
+    h.redisLPush(this.client, this.namespace, "jobs", {"job": job, "metadata": metadata});
   }
 
   start() {
@@ -95,3 +129,97 @@ class Distributor {
     console.log("Not yet... sorry");
   }
 }
+
+class TSVDistributor extends Distributor {
+  constructor(config) {
+    super(config);
+    this.configure(config);
+  }
+
+  async configure(config) {
+    console.log("configuring");
+    this.readstream = new lineByLine(config.inputFile);
+    this.separator = config.separator || "\t";
+    this.metadataFields = new Set([]);
+
+    this.fields = this.readstream.next().toString().trim().split(this.separator);
+    console.log("here is what h really is");
+    console.log(h.redisLPop);
+    let [readToLine, err] = await h.handle(h.redisLPop(this.client, this.namespace, `admin_${this.namespace}_readToLine`));
+
+    if(err) {
+      readToLine = 0;
+    }
+
+    try {
+      readToLine = parseInt(readToLine)
+    }
+    catch {
+      readToLine = 0;
+    }
+
+    this.seek(readToLine); // seeks to the appropriate line
+    this.linesRead = 0;
+  }
+
+  seek(readToLine) {
+    let linesRead = 0;
+    while((linesRead < readToLine) && (line = readstream.next())) {
+      linesRead++;
+    }
+    this.linesRead = linesRead;
+  }
+
+  addJobsLoop() {
+    let jobsInterval = setInterval(() => {
+      let jobsPendingCount = 0; // something
+      let jobsToAdd = 5 * this.jobsPerSecond;
+      let jobsAdded = 0;
+      let line = null;
+      if(jobsPendingCount < jobsToAdd) {
+        while((line = this.readstream.next()) && (jobsAdded < jobsToAdd)) {
+          let rawData = line.toString().trim().split(this.separator);
+          console.log(rawData);
+          let job = {};
+          let metadata = {};
+          for(let i = 0; i < this.fields.length; i++) {
+            if(this.metadataFields.has(this.fields[i])) {
+              metadata[this.fields[i]] = rawData[i];
+            }
+            else {
+              job[this.fields[i]] = rawData[i];
+            }
+          }
+          this.addJob(job, metadata);
+        }
+        if(!line) {
+          this.readAllLines = true;
+          clearInterval(jobsInterval);
+        }
+      }
+    });
+  }
+
+  onNextJob(job) {
+    if(this.readAllLines && job === null) {
+      console.log("no jobs left!");
+    }
+  }
+}
+
+function testDistributor() {
+  let d = new TSVDistributor({
+    retryCount: 0,
+    relayIps: ["http:localhost:8000"],
+    lambdaNames: ["hi"],
+    jobsPerSecond: 3,
+    namespace: "abctest",
+    inputFile: "dummydata.csv",
+    separator: ",",
+    metadataFields: []
+  });
+  d.start();
+  d.addJobsLoop();
+}
+
+testDistributor();

@@ -6,15 +6,16 @@ class Relay {
     this.app = express();
     this.AWS = require("aws-sdk");
 
-    app.use(bodyParser.json());
+    this.app.use(bodyParser.json());
+    this.run();
   }
 
-  configure() {
-    app.listen(8081, function () {
+  run() {
+    this.app.listen(8081, function () {
       console.log("App listening on port 8081");
     });
 
-    app.post("/urls", (req, res) => {
+    this.app.post("/urls", (req, res) => {
       console.log("jobs received");
       console.log(req.body);
       let jobsArray = req.body;
@@ -58,4 +59,4 @@ class Relay {
   }
 }
 
-let e = new Earl();
+let e = new Relay();
