@@ -6,12 +6,16 @@ class Relay {
     this.app = express();
     this.AWS = require("aws-sdk");
 
+    this.server = require('http').createServer(this.app);
+    this.io =  require('socket.io')(this.server);
+
     this.app.use(bodyParser.json());
     this.run();
+    this.runSocket();
   }
 
   run() {
-    this.app.listen(8081, function () {
+    this.server.listen(8081, function () {
       console.log("App listening on port 8081");
     });
 
@@ -22,6 +26,13 @@ class Relay {
       this.sendsJobToLambda(jobsArray, (lambdaResp) => {
         res.send(JSON.stringify(lambdaResp));
       });
+    });
+  }
+
+  runSocket() {
+    this.io.on("connect", () => {
+      console.log("connection established");
+      this.io.send({type: "job", job: "hello world"});
     });
   }
   
