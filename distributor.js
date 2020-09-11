@@ -21,9 +21,43 @@ class Distributor {
     this.jobsPerRelay = 50; // jobs per relay per request
 
     this.relayAddresses = ["http://127.0.0.1:8081"];
+    this.relaySockets = {};
+
+    this.io = require('socket.io-client');
+    console.log("setting up this.io");
 
     this.client.on("error", function (err) {
       console.error("Error " + err);
+    });
+  }
+
+  addRelaySocket(relayURL) {
+    console.log("opening a connection...");
+    //console.log(this.io);
+    let socket = this.io(`${relayURL}/coordinator`);
+    this.relaySockets[relayURL] = socket;
+    /*socket.onopen(() => {
+      console.log("sending an ack");
+      socket.send({type: "ack"}); // acknowledge that a connection has been established, not really needed
+    });
+    socket.on("message", (data) => {
+      console.log("message received");
+      if(message.type === "moreJobs") {
+        console.log("sending more jobs...");
+      }
+    });
+    socket.on("disconnect", () => { // this will only happen if we take a relay offline
+      console.log("we disconnected... woops");
+      socket.disconnect(true);
+      delete this.relaySockets[relayURL];
+    });*/
+  }
+
+  async sleep(millis) {
+    return new Promise((accept, reject) => {
+      setTimeout(() => {
+        accept();
+      }, millis);
     });
   }
 
@@ -133,7 +167,7 @@ class Distributor {
 class TSVDistributor extends Distributor {
   constructor(config) {
     super(config);
-    this.configure(config);
+    //this.configure(config);
   }
 
   async configure(config) {
@@ -210,7 +244,7 @@ class TSVDistributor extends Distributor {
 function testDistributor() {
   let d = new TSVDistributor({
     retryCount: 0,
-    relayIps: ["http:localhost:8000"],
+    relayIps: ["http://localhost:8081"],
     lambdaNames: ["hi"],
     jobsPerSecond: 3,
     namespace: "abctest",
@@ -218,8 +252,9 @@ function testDistributor() {
     separator: ",",
     metadataFields: []
   });
-  d.start();
-  d.addJobsLoop();
+  //d.start();
+  //d.addJobsLoop();
+  d.addRelaySocket("http://localhost:8081")
 }
 
 testDistributor();

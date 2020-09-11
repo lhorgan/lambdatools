@@ -1,5 +1,5 @@
 class Relay {
-  constructor() {
+  constructor(relayCount) {
     let express = require("express");
     let bodyParser = require("body-parser");
 
@@ -8,63 +8,102 @@ class Relay {
 
     this.server = require('http').createServer(this.app);
     this.io =  require('socket.io')(this.server);
+    this.coordinatorNamespace = this.io.of("/coordinator");
+    this.lambdaNamespace = this.io.of("/lambda");
 
     this.lambdaSockets = {};
 
     this.app.use(bodyParser.json());
-    this.run();
-    this.runSocket();
+    this.listenHTTP();
+    this.listenSocket();
 
-    ///this.uid = ID();
+    this.coordinatorSocket = null;
 
     this.maxDepth = 1; // max number of lambdas per function name
   }
 
-  run() {
+  listenHTTP() {
     this.server.listen(8081, function () {
       console.log("App listening on port 8081");
     });
 
-    this.app.post("/urls", (req, res) => {
+    this.app.post("/jobs", (req, res) => {
       console.log("jobs received");
       console.log(req.body);
-    let jobsArray = req.body;
+      let jobsArray = req.body;
       this.sendsJobToLambda(jobsArray, (lambdaResp) => {
         res.send(JSON.stringify(lambdaResp));
       });
     });
 
-    this.app.post("/lambdaNames", (req, res) => {
+    this.app.post("/lambdas", (req, res) => {
+      let lambdaArray = req.body;
+      this.invokeLambdas(lambdaArray);
     });
   }
 
-  runSocket() {
-    this.io.on("connect", (socket) => {
+  listenSocket() {
+    this.coordinatorNamespace.on("connect", (socket) => {
+      console.log("Coordinator connected");
+      if(this.coordinatorSocket) {
+        console.log("Appears the coordinator reconnected...");
+        this.coordinatorSocket.disconnect();
+      }
+      this.coordinatorSocket = socket;
+    });
+
+    this.lambdaNamespace.on("connect", (socket) => {
       if(socket.handshake.query.name) {
-        console.log("socket " + socket.id + " connected")
-        this.addLambdaSocket(socket.id, socket.handshake.query.name);
+        console.log("socket " + socket.id + " connected");
+        let functionName = socket.handshake.query.name;
+
+        this.addLambdaSocket(functionName, socket.id);
+
+        socket.on("disconnect", () => {
+          console.log("socket " + socket.id + " disconnected");
+          this.removeLambdaSocket(functionName, socket.id);
+        });
+  
+        socket.on("message", () => {
+          console.log("received a message on socket " + socket.id);
+        });
       }
       else {
         console.error("No function name established");
+        socket.disconnect();
       }
-      
-      socket.on("disconnect", () => {
-        console.log("socket " + socket.id + " disconnected");
-      });
-
-      socket.on("message", () => {
-        console.log("received a message on socket " + socket.id)
-      });
     });
   }
 
-  addLambdaSocket(socketID, functionName) {
+  addLambdaSocket(functionName, socket) {
     if(!(functionName in this.lambdaSockets)) {
-      this.lambdaSockets[functionName] = [];
+      this.lambdaSockets[functionName] = set();
     }
     if(this.lambdaSockets[functionName].length < this.maxDepth) {
-      this.lambdaSockets[functionName].push(socketID);
+      this.lambdaSockets[functionName].add(socket.id);
     }
+  }
+
+  removeLamdbaSocket(functionName, socket) {
+    socket.removeAllListeners();
+    this.lambdaSockets[functionName].delete(socket.id);
+    socket.close();
+    this.invokeLambda(this.lambdaInfos[functionName]);
+  }
+
+  invokeLambdas(lambdaNames) {
+    for(let i = 0; i < lambdaNames.length; i++) {
+
+    }
+  }
+
+  invokeLambda(lambdaInfo) {
+    return new Promise((accept, reject) => {
+      AWS.config.update({region: lambdaInfo.region});
+      var lambda = new AWS.Lambda();
+
+      let payload = {}
+    });
   }
   
   sendJobsToLambda(jobsArray, cb) {
