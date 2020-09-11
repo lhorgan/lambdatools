@@ -20,7 +20,7 @@ class Distributor {
     this.client = redis.createClient();
     this.jobsPerRelay = 50; // jobs per relay per request
 
-    this.relayAddresses = ["http://127.0.0.1:8081"];
+    this.relayAddresses = ["http://127.0.0.1:8081", "http://127.0.0.1:8082"];
     this.relaySockets = {};
 
     this.io = require('socket.io-client');
@@ -36,23 +36,51 @@ class Distributor {
     //console.log(this.io);
     let socket = this.io(`${relayURL}/coordinator`);
     this.relaySockets[relayURL] = socket;
-    /*socket.onopen(() => {
-      console.log("sending an ack");
-      socket.send({type: "ack"}); // acknowledge that a connection has been established, not really needed
-    });
-    socket.on("message", (data) => {
+    // socket.onopen(() => {
+    //   console.log("sending an ack");
+    //   socket.send({type: "ack"}); // acknowledge that a connection has been established, not really needed
+    // });
+    socket.on("message", (message) => {
       console.log("message received");
-      if(message.type === "moreJobs") {
+      console.log(message);
+      if(message.type === "moreWork") {
         console.log("sending more jobs...");
+        let bogusJobs = [];
+        for(let i = 0; i < 50; i++) {
+          bogusJobs.push({"id": this.randomString()});
+        }
+        this.sendJobs(relayURL, bogusJobs);
+      }
+      else if(message.type === "jobComplete") {
+        console.log(message);
       }
     });
     socket.on("disconnect", () => { // this will only happen if we take a relay offline
       console.log("we disconnected... woops");
       socket.disconnect(true);
       delete this.relaySockets[relayURL];
-    });*/
+    });
   }
 
+  sendJobs(relayURL, jobs) {
+    console.log("THE JOBS");
+    console.log(jobs);
+    fetch(relayURL + "/jobs", {
+      method: "post",
+      body: JSON.stringify(jobs),
+      headers: { 'Content-Type': 'application/json' }
+    })
+    .then(this.handleErrors)
+    .then(response => response.json())
+    .then(data => {
+        console.log("jobs sent");
+    })
+    .catch(err => {
+        console.log(err);
+        console.log("Something seems to have gone wrong sending the jobs...");
+    });
+  }
+  
   async sleep(millis) {
     return new Promise((accept, reject) => {
       setTimeout(() => {
@@ -254,7 +282,9 @@ function testDistributor() {
   });
   //d.start();
   //d.addJobsLoop();
-  d.addRelaySocket("http://localhost:8081")
+  d.addRelaySocket("http://localhost:8081");
+  d.addRelaySocket("http://localhost:8082");
+  //d.addRelaySocket("http://localhost:8082");
 }
 
 testDistributor();

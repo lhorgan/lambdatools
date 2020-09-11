@@ -1,5 +1,7 @@
 class Relay {
-  constructor(relayCount) {
+  constructor(relayPort) {
+    this.relayPort = relayPort;
+    
     let express = require("express");
     let bodyParser = require("body-parser");
 
@@ -17,28 +19,40 @@ class Relay {
     this.listenHTTP();
     this.listenSocket();
 
+    this.pendingWorkRequest = false;
+
     this.coordinatorSocket = null;
+
+    this.queue = [];
 
     this.maxDepth = 1; // max number of lambdas per function name
   }
 
   listenHTTP() {
-    this.server.listen(8081, function () {
-      console.log("App listening on port 8081");
+    this.server.listen(this.relayPort, ()  => {
+      console.log("App listening on port " + this.relayPort);
     });
 
     this.app.post("/jobs", (req, res) => {
       console.log("jobs received");
       console.log(req.body);
-      let jobsArray = req.body;
-      this.sendsJobToLambda(jobsArray, (lambdaResp) => {
-        res.send(JSON.stringify(lambdaResp));
-      });
+      let jobs = req.body;
+
+      for(let i = 0; i < jobs.length; i++) { // add all the jobs to the queue
+        this.queue.push(jobs[i]);
+      }
+      console.log("QUEUE LENGHT NOW " + this.queue.length);
+
+      res.send({"status": 200});
     });
 
     this.app.post("/lambdas", (req, res) => {
       let lambdaArray = req.body;
       this.invokeLambdas(lambdaArray);
+
+      for(let i = 0; i < lambdaArray.length; i++) {
+        this.lambdaInfos[lambdaArray[i]].name = lambdaArray[i];
+      }
     });
   }
 
@@ -57,15 +71,36 @@ class Relay {
         console.log("socket " + socket.id + " connected");
         let functionName = socket.handshake.query.name;
 
-        this.addLambdaSocket(functionName, socket.id);
+        this.addLambdaSocket(functionName, socket);
 
         socket.on("disconnect", () => {
           console.log("socket " + socket.id + " disconnected");
-          this.removeLambdaSocket(functionName, socket.id);
+          this.removeLambdaSocket(functionName, socket);
         });
   
-        socket.on("message", () => {
+        socket.on("message", (message) => {
           console.log("received a message on socket " + socket.id);
+          console.log(message);
+          if(message.type === "moreWork") {
+            console.log(`We need to send more work to ${socket.id} of ${functionName} fame.`);
+            let job = this.queue.pop();
+            console.log("POPPED JOB " + JSON.stringify(job));
+            if(job) {
+              console.log("sending a job to " + socket.id);
+              socket.send({type: "job", job}); 
+            }
+            if(this.queue.length < 25 && !this.pendingWorkRequest) {
+              this.coordinatorSocket.send({type: "moreWork"});
+              this.pendingWorkRequest = true;
+              setTimeout(() => {
+                this.pendingWorkRequest = false;
+              }, 2000);
+            }
+          }
+          else if(message.type === "jobComplete") {
+            console.log(message);
+            this.coordinatorSocket.send(message);
+          }
         });
       }
       else {
@@ -77,67 +112,25 @@ class Relay {
 
   addLambdaSocket(functionName, socket) {
     if(!(functionName in this.lambdaSockets)) {
-      this.lambdaSockets[functionName] = set();
+      this.lambdaSockets[functionName] = new Set();
     }
     if(this.lambdaSockets[functionName].length < this.maxDepth) {
       this.lambdaSockets[functionName].add(socket.id);
     }
   }
 
-  removeLamdbaSocket(functionName, socket) {
+  removeLambdaSocket(functionName, socket) {
     socket.removeAllListeners();
     this.lambdaSockets[functionName].delete(socket.id);
-    socket.close();
     this.invokeLambda(this.lambdaInfos[functionName]);
   }
 
-  invokeLambdas(lambdaNames) {
-    for(let i = 0; i < lambdaNames.length; i++) {
-
-    }
-  }
-
-  invokeLambda(lambdaInfo) {
-    return new Promise((accept, reject) => {
-      AWS.config.update({region: lambdaInfo.region});
-      var lambda = new AWS.Lambda();
-
-      let payload = {}
-    });
-  }
-  
-  sendJobsToLambda(jobsArray, cb) {
-    let lambdaResps = [];
-
-    for(let i = 0; i < jobsArray.length; i++) {
-      let job = jobsArray[i];
-
-      AWS.config.update({region: job.region});
-      var lambda = new AWS.Lambda();
-      
-      let payload = job.job;
-
-      var params = {
-        FunctionName: job.name,
-        Payload: JSON.stringify(payload)
-      };
-
-      lambda.invoke(params, (err, data) => {
-        let lambdaResp = {};
-        if(err) {
-
-        }
-        else {
-
-        }
-        lambdaResp.push(lambdaResp);
-        
-        if(lambdaResps.length === jobsArray.length) {
-          cb(lambdaResps);
-        }
-      });
+  invokeLambdas(lambdaInfos) {
+    for(let i = 0; i < lambdaInfos.length; i++) {
+      this.invokeLambda(lambdaInfos[i]);
     }
   }
 }
 
-let e = new Relay();
+console.log(process.argv[2]);
+let e = new Relay(process.argv[2]);
