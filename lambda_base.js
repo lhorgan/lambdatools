@@ -1,11 +1,9 @@
 class LambdaClient {
   constructor(context, lambdaTimeout) {
-    this.serverURL = serverURL;
     this.context = context;
     this.lambdaTimeout = lambdaTimeout;
 
     this.io = require('socket.io-client');
-    this.socket = this.io(this.serverURL);
 
     this.relaySockets = {};
 
@@ -24,7 +22,7 @@ class LambdaClient {
     console.log("Cleaning up!");
   }
 
-  mainLoop() {
+  async mainLoop() {
     while(this.context.getRemainingTimeMillis() > 2 * this.jobTimeout) {
       let task;
       if(task = this.queue.pop()) {
@@ -45,10 +43,10 @@ class LambdaClient {
   }
 
   addRelaySocket(relayURL) {
-    let socket = this.io(relayURL);
+    let socket = this.io(relayURL, {query: {name: this.context.functionName}});
     this.relaySockets[relayURL] = socket;
     socket.onopen(() => {
-      socket.send({type: "ack"}); // acknowledge that a connection has been established
+      socket.send({type: "ack"}); // acknowledge that a connection has been established, not really needed
     });
     socket.on("message", (data) => {
       this.queue.push({"data": data, "socket": socket});
@@ -102,7 +100,9 @@ let mockContext = {
       this.startTime = Date.now();
     }
     return this.lambdaTimeout - (Date.now() - this.startTime);
-  }
+  },
+  functionName: "mockFunction"
 }
 
 let mc = new MockClient(mockContext, 30000);
+mc.addRelaySocket("http://localhost:8081");

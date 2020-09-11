@@ -9,9 +9,15 @@ class Relay {
     this.server = require('http').createServer(this.app);
     this.io =  require('socket.io')(this.server);
 
+    this.lambdaSockets = {};
+
     this.app.use(bodyParser.json());
     this.run();
     this.runSocket();
+
+    ///this.uid = ID();
+
+    this.maxDepth = 1; // max number of lambdas per function name
   }
 
   run() {
@@ -22,18 +28,43 @@ class Relay {
     this.app.post("/urls", (req, res) => {
       console.log("jobs received");
       console.log(req.body);
-      let jobsArray = req.body;
+    let jobsArray = req.body;
       this.sendsJobToLambda(jobsArray, (lambdaResp) => {
         res.send(JSON.stringify(lambdaResp));
       });
     });
+
+    this.app.post("/lambdaNames", (req, res) => {
+    });
   }
 
   runSocket() {
-    this.io.on("connect", () => {
-      console.log("connection established");
-      this.io.send({type: "job", job: "hello world"});
+    this.io.on("connect", (socket) => {
+      if(socket.handshake.query.name) {
+        console.log("socket " + socket.id + " connected")
+        this.addLambdaSocket(socket.id, socket.handshake.query.name);
+      }
+      else {
+        console.error("No function name established");
+      }
+      
+      socket.on("disconnect", () => {
+        console.log("socket " + socket.id + " disconnected");
+      });
+
+      socket.on("message", () => {
+        console.log("received a message on socket " + socket.id)
+      });
     });
+  }
+
+  addLambdaSocket(socketID, functionName) {
+    if(!(functionName in this.lambdaSockets)) {
+      this.lambdaSockets[functionName] = [];
+    }
+    if(this.lambdaSockets[functionName].length < this.maxDepth) {
+      this.lambdaSockets[functionName].push(socketID);
+    }
   }
   
   sendJobsToLambda(jobsArray, cb) {
