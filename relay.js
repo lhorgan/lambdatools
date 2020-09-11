@@ -25,6 +25,8 @@ class Relay {
 
     this.queue = [];
 
+    this.lambdaInfos = {};
+
     this.maxDepth = 1; // max number of lambdas per function name
   }
 
@@ -129,6 +131,10 @@ class Relay {
     for(let i = 0; i < lambdaInfos.length; i++) {
       this.invokeLambda(lambdaInfos[i]);
     }
+  }
+
+  invokeLambda(lambdaInfo) {
+    return;
   }
 }
 
