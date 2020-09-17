@@ -2,10 +2,8 @@ const redis = require("redis");
 const lineByLine = require('n-readlines');
 const fetch = require('node-fetch');
 const passport = require('passport');
-const { raw } = require("body-parser");
 
 const h = require('./util.js')._Util; // h for helpers
-
 
 class Distributor {
   constructor(config) {
@@ -33,13 +31,8 @@ class Distributor {
 
   addRelaySocket(relayURL) {
     console.log("opening a connection...");
-    //console.log(this.io);
     let socket = this.io(`${relayURL}/coordinator`);
     this.relaySockets[relayURL] = socket;
-    // socket.onopen(() => {
-    //   console.log("sending an ack");
-    //   socket.send({type: "ack"}); // acknowledge that a connection has been established, not really needed
-    // });
     socket.on("message", (message) => {
       console.log("message received");
       console.log(message);

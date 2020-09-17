@@ -26,24 +26,46 @@ class EC2Launcher {
   base64_encode(file_path) {
     // read binary data
     var file = fs.readFileSync(file_path).toString();
-    console.log(file);
+    //console.log(file);
     
     // convert binary data to base64 encoded string
     let b64 = new Buffer.from(file).toString('base64');
-    console.log(b64);
+    //console.log(b64);
     return b64;
   }
 
   getKeys(region) {
     AWS.config.update({region: region});
     let ec2 = new AWS.EC2({apiVersion: '2016-11-15'});
-    ec2.describeKeyPairs({}, (err, data) => {
-      if(err) {
-        console.error(err);
-      }
-      else {
-        console.log(data);
-      }
+
+    return new Promise((accept, reject) => {
+      ec2.describeKeyPairs({}, (err, data) => {
+        if(err) {
+          reject(err);
+        }
+        else {
+          accept(data);
+        }
+      });
+    });
+  }
+
+  makeKeys(name, region) {
+    AWS.config.update({region: region});
+
+    var params = {
+      KeyName: name
+    };
+
+    return new Promise((accept, reject) => {
+      ec2.createKeyPair(params, (err, data) => {
+        if(err) {
+          reject(err);
+        }
+        else {
+          accept(data);
+        }
+      });
     });
   }
 
@@ -64,49 +86,49 @@ class EC2Launcher {
     });
   }
 
-  createInstance(instanceType, name, region, keyName, instanceCount, userDataPath) {
+  createInstance(config, setupScriptPath, instanceCount, region) {
+    config.MinCount = instanceCount;
+    config.MaxCount = instanceCount;
+    config.ImageId = this.amis[region];
+    config.UserData = this.base64_encode(setupScriptPath);
+    
     AWS.config.update({region: region});
+    let ec2 = new AWS.EC2({apiVersion: '2016-11-15'});
 
+    return new Promise((accept, reject) => {
+      ec2.runInstances(config, (err, data) => {
+        if(err) {
+          reject(err);
+        }
+        else {
+          accept(data);
+        }
+      });
+    });
+  }
 
-    var instanceParams = {
-      ImageId: this.amis[region], 
-      InstanceType: instanceType,
-      KeyName: keyName,
-      MinCount: instanceCount,
-      MaxCount: instanceCount,
-      UserData: this.base64_encode(userDataPath)
-   };
-   console.log(instanceParams);
+  addTags(instanceIds, tags, region) {
+    if(!Array.isArray(instanceIds)) {
+      instanceIds = [instanceIds];
+    }
 
-    // Create a promise on an EC2 service object
-    var instancePromise = new AWS.EC2({apiVersion: '2016-11-15'}).runInstances(instanceParams).promise();
+    AWS.config.update({region: region});
+    let ec2 = new AWS.EC2({apiVersion: '2016-11-15'});
 
-    // Handle promise's fulfilled/rejected states
-    instancePromise.then(
-    function(data) {
-      console.log(data);
-      var instanceId = data.Instances[0].InstanceId;
-      console.log("Created instance", instanceId);
-      // Add tags to the instance
-      // tagParams = {Resources: [instanceId], Tags: [
-      //     {
-      //       Key: 'Name',
-      //       Value: 'SDK Sample'
-      //     }
-      // ]};
-      // Create a promise on an EC2 service object
-      // var tagPromise = new AWS.EC2({apiVersion: '2016-11-15'}).createTags(tagParams).promise();
-      // Handle promise's fulfilled/rejected states
-      // tagPromise.then(
-      //   function(data) {
-      //     console.log("Instance tagged");
-      //   }).catch(
-      //     function(err) {
-      //     console.error(err, err.stack);
-      //   });
-    }).catch(
-      function(err) {
-      console.error(err, err.stack);
+    let tagsList = [];
+    for(let tag in tags) {
+      tagsList.push({Name: tag, Value: tags[tag]});
+    }
+
+    return new Promise((accept, reject) => {
+      ec2.createTags({Resources: instanceIds, Tags: tagsList}, (err, data) => {
+        if(err) {
+          reject(err);
+        }
+        else {
+          accept(data);
+        }
+      });
     });
   }
 }

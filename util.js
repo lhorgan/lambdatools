@@ -7,6 +7,38 @@ class Util {
       .catch(error => Promise.resolve([null, error]));
   }
 
+  static async redisSetAdd(client, namespace, key, value) {
+    return new Promise((accept, reject) => {
+      if(typeof(value) === "Object") {
+        value - JSON.stringify(value);
+      }
+      client.sadd(`${namespace}_${key}`, value, (err, res) => {
+        if(err) {
+          reject(err);
+        }
+        else {
+          accept(res);
+        }
+      });
+    });
+  }
+
+  static async redisSetPop(client, namespace, key, value) {
+    return new Promise((accept, reject) => {
+      if(typeof(value) === "Object") {
+        value - JSON.stringify(value);
+      }
+      client.sadd(`${namespace}_${key}`, value, (err, res) => {
+        if(err) {
+          reject(err);
+        }
+        else {
+          accept(res);
+        }
+      });
+    });
+  }
+
   static async redisSet(client, namespace, key, value) {
     return new Promise((accept, reject) => {
       if(typeof(value) === "Object") {

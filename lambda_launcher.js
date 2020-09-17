@@ -4,6 +4,7 @@ const { exec } = require("child_process");
 const { stderr } = require("process");
 const util = require('util');
 const fs = require('fs');
+const h = require('./util.js')._Util; // h for helpers
 
 // clever pattern from https://dev.to/sobiodarlington/better-error-handling-with-async-await-2e5m
 const handle = (promise) => {
@@ -25,11 +26,46 @@ class LambdaLauncher {
     //   console.log("Success!");
     // }
 
-    let res = await this.listFunctions("hi", "eu-west-1");
-    console.log(res);
+    // let res = await this.listFunctions("hi", "eu-west-1");
+    // console.log(res);
+
+    let [, zipErr] = await handle(this.zipDirectory("./testzip", "testzip.zip"));
+    if(zipErr) {
+      console.error(zipErr);
+      return;
+    }
+
+    /*let [bucketCreateRes, bucketCreateErr] = await h.handle(this.createBucket({
+      Bucket: "lambda-bucket-917"
+    }, "us-east-1"));
+
+    if(bucketCreateErr) {
+      console.error(bucketCreateErr);
+    }
+    else {
+      console.log(bucketCreateRes);
+    }*/
+
+    /*let bucketParams = {
+      Bucket: "lambda-bucket-917",
+      Key: "functionCode"
+    }
+    let [uploadResult, uploadErr] = await h.handle(this.uploadFile("./testzip.zip", bucketParams, "us-east-1"));
+    if(uploadErr) {
+      console.error(uploadErr);
+      return;
+    }
+    else {
+      console.log(uploadResult);
+    }*/
+
+    
   }
 
-  createBucket(bucketParams) {
+  createBucket(bucketParams, region) {
+    AWS.config.update({region: region});
+    let s3 = new AWS.S3();
+
     return new Promise((resolve, reject) => {
       s3.createBucket(bucketParams, function(err, data) {
         if(err) {
@@ -38,11 +74,11 @@ class LambdaLauncher {
         else {
           resolve(data);
         }
-      });
+      }); 
     });
   }
 
-  uploadFile(path, bucketParams) {
+  uploadFile(path, bucketParams, region) {
     return new Promise((resolve, reject) => {
       //var fileData = Buffer.from(path, "binary");
       var fileStream = fs.createReadStream(path);
@@ -51,7 +87,10 @@ class LambdaLauncher {
       });
       bucketParams.Body = fileStream;
 
-      s3.upload(bucketParams, function(err, data) {
+      AWS.config.update({region: region});
+      let s3 = new AWS.S3();
+      
+      s3.upload(bucketParams, (err, data) => {
         if(err) {
           reject(err);
         }
@@ -62,7 +101,7 @@ class LambdaLauncher {
     });
   }
 
-  launch(region, S3BucketName, S3KeyName, config) {
+  launch(S3BucketName, S3KeyName, config, region) {
     return new Promise((accept, reject) => {
       AWS.config.update({region: region});
       let lambda = new AWS.Lambda();
@@ -86,6 +125,59 @@ class LambdaLauncher {
           }
           else {
             console.log("Launched " + name);
+            accept(data);
+          }
+      });
+    });
+  }
+
+  updateCode(S3BucketName, S3KeyName, functionName, region) {
+    return new Promise((accept, reject) => {
+      AWS.config.update({region: region});
+      let lambda = new AWS.Lambda();
+      
+      var params = {
+        S3Bucket: S3BucketName,
+        S3Key: S3KeyName,
+        FunctionName: functionName
+      };
+
+      lambda.updateCode(params, (err, data) => {
+          if(err) {
+            console.log(err);
+            console.log("Failed to update " + functionName);
+            reject(err);
+          }
+          else {
+            console.log("Updated " + functionName);
+            accept(data);
+          }
+      });
+    });
+  }
+
+  updateConfig(S3BucketName, S3KeyName, functionName, config, region) {
+    return new Promise((accept, reject) => {
+      AWS.config.update({region: region});
+      let lambda = new AWS.Lambda();
+      
+      var params = {
+        S3Bucket: S3BucketName,
+        S3Key: S3KeyName,
+        FunctionName: functionName
+      };
+      for(let fieldName in config) {
+        params[fieldName] = config[fieldName];
+      }
+
+      lambda.updateFunctionConfiguration(params, (err, data) => {
+          if(err) {
+            console.log(err);
+            console.log("Failed to update " + functionName);
+            reject(err);
+          }
+          else {
+            console.log("Updated " + functionName);
             accept(data);
           }
       });
