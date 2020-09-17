@@ -199,7 +199,17 @@ class CLI {
 
     let coordinatorConfig = {
       InstanceType: coordinatorType.type,
-      KeyName: keyName.key
+      KeyName: keyName.key,
+      SecurityGroupIds: [
+        "sg-001e53a36d06474db"
+      ],
+      TagSpecifications: [{
+        ResourceType: "instance", 
+        Tags: [{
+          Key: "Name", 
+          Value: `${namespace.namespace}-coordinator`
+        }
+      ]}]
     };
     let [coordinator, coordErr] = await h.handle(this.ec2Util.createInstance(coordinatorConfig, 
       coordinatorLaunchScriptPath.path,
@@ -217,7 +227,17 @@ class CLI {
 
     let relaysConfig = {
       InstanceType: relayType.type,
-      KeyName: keyName.key
+      KeyName: keyName.key,
+      SecurityGroupIds: [
+        "sg-001e53a36d06474db"
+      ],
+      TagSpecifications: [{
+        ResourceType: "instance", 
+        Tags: [{
+          Key: "Name", 
+          Value: `${namespace.namespace}-relay`
+        }
+      ]}]
     }
     let [relays, relayErr] = await h.handle(this.ec2Util.createInstance(relaysConfig, 
       relayLaunchScriptPath.path,
