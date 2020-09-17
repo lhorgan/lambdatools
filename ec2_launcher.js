@@ -4,7 +4,7 @@ const fs = require("fs");
 // Load credentials and set region from JSON file
 
 // Create EC2 service object
-var ec2 = new AWS.EC2({apiVersion: '2016-11-15'});
+//var ec2 = new AWS.EC2({apiVersion: '2016-11-15'});
 
 class EC2Launcher {
   constructor() {
@@ -45,10 +45,28 @@ class EC2Launcher {
         console.log(data);
       }
     });
-  }  
+  }
+
+  describeInstances(filters) {
+    AWS.config.update({region: "us-east-1"});
+    let ec2 = new AWS.EC2({apiVersion: '2016-11-15'})
+
+    return new Promise((accept, reject) => {
+      ec2.describeInstances({Filters: filters}, function(err, data) {
+        if (err) {
+          console.log(err, err.stack); // an error occurred
+          reject(err);
+        }
+        else {
+          accept(data);
+        }
+      });
+    });
+  }
 
   createInstance(instanceType, name, region, keyName, instanceCount, userDataPath) {
     AWS.config.update({region: region});
+
 
     var instanceParams = {
       ImageId: this.amis[region], 
@@ -93,5 +111,4 @@ class EC2Launcher {
   }
 }
 
-launcher = new EC2Launcher();
-launcher.go();
+exports.EC2 = EC2Launcher;
