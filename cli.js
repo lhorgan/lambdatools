@@ -84,6 +84,10 @@ class CLI {
         message: "Key name:"
       }
     }
+
+    this.lambda = {
+      
+    }
   }
 
   async mainMenu() {
