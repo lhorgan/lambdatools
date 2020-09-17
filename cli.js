@@ -2,6 +2,7 @@ const inquirer = require('inquirer');
 inquirer.registerPrompt('suggest', require('inquirer-prompt-suggest'));
 const EC2 = require("./ec2_launcher").EC2;
 const fs = require("fs");
+const h = require('./util.js')._Util; // h for helpers
 
 class CLIUpdater {
   constructor() {
@@ -24,8 +25,8 @@ class CLIUpdater {
   }
 }
 
-let updater = new CLIUpdater();
-updater.executeScript("./test.sh")
+//let updater = new CLIUpdater();
+//updater.executeScript("./test.sh");
 
 class CLI {
   constructor() {
@@ -64,7 +65,7 @@ class CLI {
         type: "list",
         name: "type",
         message: "Type:",
-        choices: ["t3.nano", "t3.micro", "t3.small", "t3.medium", "t3.large", "t3.xlarge", "t3.2xlarge"]
+        choices: ["t3a.nano", "t3a.micro", "t3a.small", "t3a.medium", "t3a.large", "t3a.xlarge", "t3a.2xlarge", "other"]
       },
       states: {
         type: "list",
@@ -76,6 +77,11 @@ class CLI {
         type: "input",
         name: "filePath",
         message: "Path:"
+      },
+      key: {
+        type: "input",
+        name: "key",
+        message: "Key name:"
       }
     }
   }
@@ -98,6 +104,9 @@ class CLI {
         break;
       case("update"):
         await this.ec2UpdateMenu();
+        break;
+      case("create"):
+        await this.ec2CreateMenu();
         break;
     }
   }
@@ -134,7 +143,95 @@ class CLI {
   }
 
   async ec2CreateMenu() {
-    
+    console.log("Coordinator Configuration:");
+    let coordinatorType = await inquirer.prompt(this.ec2.types);
+    console.log(coordinatorType);
+    if(coordinatorType.type === "other") {
+      console.log("Enter the instance type:");
+      coordinatorType = await inquirer.prompt({
+        type: "input",
+        name: "type",
+        message: "Type:"
+      });
+    }
+    let blockStorageSize = await inquirer.prompt({
+      type: "number",
+      name: "gb",
+      message: "Size (GB):",
+      default: 100
+    });
+    let coordinatorLaunchScriptPath = await inquirer.prompt({
+      type: "input",
+      name: "path",
+      message: "Launch Script Path:",
+      default: "./ec2_dist_config.sh"
+    });
+
+    console.log("Relay Configuration:");
+    let relayType = await inquirer.prompt(this.ec2.types);
+    console.log(coordinatorType);
+    if(coordinatorType.type === "other") {
+      console.log("Enter the instance type:");
+      coordinatorType = await inquirer.prompt({
+        type: "input",
+        name: "type",
+        message: "Type:"
+      });
+    }
+    let relayLaunchScriptPath = await inquirer.prompt({
+      type: "input",
+      name: "path",
+      message: "Launch Script Path:"
+    });
+    let relayCount = await inquirer.prompt({
+      type: "number",
+      name: "count",
+      message: "Node Count:",
+      default: 10
+    });
+
+    let keyName = await inquirer.prompt(this.ec2.key);
+    let namespace = await inquirer.prompt({
+      type: "input",
+      name: "namespace",
+      message: "Namespace"
+    });
+
+    let coordinatorConfig = {
+      InstanceType: coordinatorType.type,
+      KeyName: keyName.key
+    };
+    let [coordinator, coordErr] = await h.handle(this.ec2Util.createInstance(coordinatorConfig, 
+      coordinatorLaunchScriptPath.path,
+      1,
+      "us-east-1"));
+    if(coordErr) {
+      console.error(coordErr);
+      return;
+    }
+    else {
+      console.log(coordinator);
+      let id = coordinator.Instances[0].InstanceId;
+      console.log("Created instance: " + id);
+    }
+
+    let relaysConfig = {
+      InstanceType: relayType.type,
+      KeyName: keyName.key
+    }
+    let [relays, relayErr] = await h.handle(this.ec2Util.createInstance(relaysConfig, 
+      relayLaunchScriptPath.path,
+      relayCount.count,
+      "us-east-1"));
+    if(relayErr) {
+      console.error(relayErr);
+    }
+    else {
+      console.log("Launching relay instances...");
+      for(let i = 0; i < relays.Instances.length; i++) {
+        console.log(`${relays.Instances[i].InstanceId}: ${relays.Instances[i].PrivateIpAddress}`);
+      }
+    }
   }
 
   async ec2UpdateMenu() {
@@ -142,5 +239,5 @@ class CLI {
   }
 }
 
-//let cli = new CLI();
-//cli.mainMenu();
+let cli = new CLI();
+cli.ec2CreateMenu();
