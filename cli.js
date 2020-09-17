@@ -1,6 +1,31 @@
 const inquirer = require('inquirer');
 inquirer.registerPrompt('suggest', require('inquirer-prompt-suggest'));
 const EC2 = require("./ec2_launcher").EC2;
+const fs = require("fs");
+
+class CLIUpdater {
+  constructor() {
+    this.io = require('socket.io-client');
+    this.socket = this.io("http://localhost:5050/cli");
+
+    this.socket.on("message", (message) => {
+      if(message.type === "data") {
+        console.log(message.data);
+      }
+      else if(message.type === "error") {
+        console.error(message.error);
+      }
+    });
+  }
+  
+  executeScript(scriptFileName) {
+    let script = fs.readFileSync(scriptFileName);
+    this.socket.send({type: "update", script: script});
+  }
+}
+
+let updater = new CLIUpdater();
+updater.executeScript("./test.sh")
 
 class CLI {
   constructor() {
@@ -46,6 +71,11 @@ class CLI {
         name: "state",
         message: "State:",
         choices: ["pending", "running", "shutting-down", "terminated", "stopping", "stopped"]
+      },
+      update: {
+        type: "input",
+        name: "filePath",
+        message: "Path:"
       }
     }
   }
@@ -54,7 +84,8 @@ class CLI {
     let action = await inquirer.prompt(this.actions);
     switch(action.action) {
       case("ec2"):
-        this.ec2Menu();
+        await this.ec2Menu();
+        await this.mainMenu();
         break;
     }
   }
@@ -63,7 +94,10 @@ class CLI {
     let action = await inquirer.prompt(this.ec2.actions);
     switch(action.action) {
       case("list"):
-        this.ec2DescribeMenu();
+        await this.ec2DescribeMenu();
+        break;
+      case("update"):
+        await this.ec2UpdateMenu();
         break;
     }
   }
@@ -71,9 +105,9 @@ class CLI {
   async ec2DescribeMenu() {
     let tagType = await inquirer.prompt(this.ec2.tagType);
     let tagsString = await inquirer.prompt(this.ec2.tags);
-    let instanceType = await inquirer.prompt(this.ec2.types);
+    //let instanceType = await inquirer.prompt(this.ec2.types);
     let instanceState = await inquirer.prompt(this.ec2.states);
-    console.log(this.ec2);
+    //console.log(this.ec2);
     let instances = await this.ec2Util.describeInstances([
       {
         Name: `tag:${tagType.tagType}`,
@@ -83,12 +117,20 @@ class CLI {
         Name: 'instance-state-name',
         Values: [instanceState.state]
       },
-      {
+      /*{
         Name: `instance-type`,
         Values: [instanceType.type]
-      }
+      }*/
     ]);
-    console.log(instances);
+    for(let i = 0; i < instances.Reservations.length; i++) {
+      for(let j = 0; j < instances.Reservations[i].Instances.length; j++) {
+        let instance = instances.Reservations[i].Instances[j];
+        console.log(`Type: ${instance.InstanceType}`);
+        console.log(`Private IP: ${instance.PrivateIpAddress}`);
+        console.log(`Public URL: ${instance.PublicDnsName || 'None'}`);
+        console.log("\n");
+      }
+    }
   }
 
   async ec2CreateMenu() {
@@ -96,9 +138,9 @@ class CLI {
   }
 
   async ec2UpdateMenu() {
-
+    let scriptPath = await inquirer.prompt(this.ec2.update);
   }
 }
 
-let cli = new CLI();
-cli.mainMenu();
+//let cli = new CLI();
+//cli.mainMenu();
