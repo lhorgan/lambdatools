@@ -83,3 +83,4 @@ class TSVDistributor extends Distributor {
 }
 
 let d = new TSVDistributor();
+d.addRelaySocket("http://172.31.51.16:8081");
