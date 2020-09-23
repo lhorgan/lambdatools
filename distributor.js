@@ -28,7 +28,7 @@ class Distributor {
     });
 
     console.log("Loading backed up jobs from previous run...");
-    await this.loadBackedUpJobs();
+    this.loadBackedUpJobs();
 
     this.jobsToWrite = [];
 
