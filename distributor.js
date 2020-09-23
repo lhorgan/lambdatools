@@ -18,7 +18,6 @@ class Distributor {
     this.client = redis.createClient();
     this.jobsPerRelay = 50; // jobs per relay per request
 
-    this.relayAddresses = ["http://127.0.0.1:8081", "http://127.0.0.1:8082"];
     this.relaySockets = {};
 
     this.io = require('socket.io-client');
@@ -27,25 +26,80 @@ class Distributor {
     this.client.on("error", function (err) {
       console.error("Error " + err);
     });
+
+    console.log("Loading backed up jobs from previous run...");
+    await this.loadBackedUpJobs();
+
+    this.jobsToWrite = [];
+
+    let writeInterval = setInterval(() => {
+      this.writeJobs();
+    }, 1000);
   }
 
-  addRelaySocket(relayURL) {
+  async loadBackedUpJobs() {
+
+  }
+
+  async addRelaySocket(relayURL) {
     console.log("opening a connection...");
     let socket = this.io(`${relayURL}/coordinator`);
     this.relaySockets[relayURL] = socket;
-    socket.on("message", (message) => {
+    let sendingWork = false;
+
+    socket.on("message", async (message) => {
       console.log("message received");
       console.log(message);
-      if(message.type === "moreWork") {
-        console.log("sending more jobs...");
-        let bogusJobs = [];
-        for(let i = 0; i < 50; i++) {
-          bogusJobs.push({"id": this.randomString()});
+      if(message.type === "moreWork" && !sendingWork) {
+        console.log("we need to send more work to relay " + relayURL);
+        sendingWork = true;
+        // send any jobs that are available, up to 50 per relay
+        let jobsArray = [];
+        for(let i = 0; i < this.jobsPerRelay; i++) {
+          let nextJob = await this.getNextJob();
+          if(nextJob === null) {
+            break;
+          }
+          
+          if(typeof(this.onNextJob) === "function") {
+            this.onNextJob(nextJob);
+          }
+
+          jobsArray.push({"job": nextJob.job, 
+                          //"metadata": nextJob.metadata,
+                          "id": nextJob.id});
         }
-        this.sendJobs(relayURL, bogusJobs);
+        console.log("THE JOBS WE ARE SENDING");
+        console.log(JSON.stringify(jobsArray));
+        this.sendJobs(relayURL, jobsArray);
+        sendingWork = false;
       }
-      else if(message.type === "jobComplete") {
+      else if(message.type === "jobsComplete") {
         console.log(message);
+        let workedJobs = message.jobsArray;
+        for(let i = 0; i < workedJobs.length; i++) {
+          if(workedJobs[i].status === "successs") {
+            this.jobsToWrite.push(workedJobs[i]);
+          }
+          else if(workedJobs[i].status === "fail") {
+            let originalJob = this.jobsInFlight[workedJobs[i].id];
+            
+            let [failCount, err] = await h.redisGet(this.client, this.namespace, workedJobs[i].id);
+            if(err) {
+              failCount = 0;
+            }
+            failCount = parseInt(failCount) || 0;
+            
+            if(failCount < this.retryCount) {
+              h.redisSet(this.client, this.namespace, `${workedJobs[i].id}_failCount`, failCount + 1);
+              await this.clearJobInFlight();
+              this.addJob(originalJob.job, originalJob.metadata, originalJob.id); // we await clearing the job so we don't accidentally clear it again before it's been added
+            }
+            else {
+              this.jobsToWrite.push(workedJobs[i]);
+            }
+          }
+        }
       }
     });
     socket.on("disconnect", () => { // this will only happen if we take a relay offline
@@ -55,12 +109,23 @@ class Distributor {
     });
   }
 
-  sendJobs(relayURL, jobs) {
-    console.log("THE JOBS");
-    console.log(jobs);
+  // job={id, job, metadata}
+  async setJobInFlight(job) {
+    this.jobsInFlight[job.id] = job;
+    await h.redisSetAdd(this.client, this.namespace, "jobsInFlight", job.id);
+    await h.redisSet(this.client, this.namespace, job.id, job);
+  }
+
+  async clearJobInFlight(job) {
+    this.jobsInFlight[job.id] = undefined;
+    await h.redisSetRem(this.client, this.namespace, "jobsInFlight", job.id);
+    await h.redisDel(this.client, this.namespace, job.id);
+  }
+
+  sendJobs(relayURL, jobsToSend) {
     fetch(relayURL + "/jobs", {
       method: "post",
-      body: JSON.stringify(jobs),
+      body: JSON.stringify(jobsToSend),
       headers: { 'Content-Type': 'application/json' }
     })
     .then(this.handleErrors)
@@ -70,7 +135,12 @@ class Distributor {
     })
     .catch(err => {
         console.log(err);
-        console.log("Something seems to have gone wrong sending the jobs...");
+        console.log(`Something seems to have gone wrong sending the jobs to relay node ${relayURL}...`);
+        for(let i = 0; i < jobs.length; i++) {
+          let originalJob = this.jobsInFlight[jobs[i].id];
+          await this.clearJobInFlight(originalJob.id);
+          this.addJob(originalJob.job, originalJob.metadata, originalJob.id);
+        }
     });
   }
   
@@ -80,51 +150,6 @@ class Distributor {
         accept();
       }, millis);
     });
-  }
-
-  async mainLoop() {
-    // 10 relays, 500 jobs per second, 50 jobs per relay per second
-    let relayIndex = 0;
-    let jobsArray = [];
-
-    setInterval(async () => {
-      // send any jobs that are available, up to 50 per relay
-      for(let i = 0; i < this.jobsPerRelay; i++) {
-        let nextJob = await this.getNextJob();//await h.handle(h.redisLPop(this.client, this.namespace, "jobs"));
-        if(nextJob === null) {
-          break;
-        }
-        
-        if(typeof(this.onNextJob) === "function") {
-          this.onNextJob(nextJob);
-        }
-
-        jobsArray.push({"job": nextJob.job, 
-                        "metadata": nextJob.metadata, 
-                        "id": this.randomString(), 
-                        "lambdaName": this.randomChoice(this.lambdaNames)});
-      }
-      this.distributeJobs(jobsArray, relayIndex);
-      relayIndex = (relayIndex + 1) % this.relayAddresses.length;
-    }, 1000 / this.relayAddresses.length);
-  }
-
-  distributeJobs(jobsArray, relayIndex) {
-    console.log("FETCHING " + this.relayAddresses[relayIndex]);
-    fetch(this.relayAddresses[relayIndex] + "/jobs", {
-          method: "post",
-          body: jobsArray,
-          headers: { 'Content-Type': 'application/json' }
-        })
-        .then(this.handleErrors)
-        .then(response => response.json())
-        .then(data => {
-            let processedURLs = this.processCompletedJobs(data);
-        })
-        .catch(err => {
-            console.log(err);
-            console.log("Something seems to have gone wrong...");
-        });
   }
 
   handleErrors(response) {
@@ -148,7 +173,7 @@ class Distributor {
     }
 
     if(job) {
-      h.redisSet(this.client, this.namespace, job);
+      this.setJobInFlight(job);
     }
     return job;
   }
@@ -172,8 +197,11 @@ class Distributor {
 
   // job is the job itself, what you want sent to be processed
   // metadata is any information you want to be associated with the job
-  addJob(job, metadata) {
-    h.redisLPush(this.client, this.namespace, "jobs", {"job": job, "metadata": metadata});
+  addJob(job, metadata, id) {
+    let jobID = id || this.randomString();
+    console.log("ADDING JOB " + JSON.stringify(job));
+    h.redisLPush(this.client, this.namespace, "jobs", {"job": job, "metadata": metadata, "id": jobID});
+    return jobID;
   }
 
   start() {
@@ -182,83 +210,6 @@ class Distributor {
 
   stop() {
     console.log("Not yet... sorry");
-  }
-}
-
-class TSVDistributor extends Distributor {
-  constructor(config) {
-    super(config);
-    //this.configure(config);
-  }
-
-  async configure(config) {
-    console.log("configuring");
-    this.readstream = new lineByLine(config.inputFile);
-    this.separator = config.separator || "\t";
-    this.metadataFields = new Set([]);
-
-    this.fields = this.readstream.next().toString().trim().split(this.separator);
-    console.log("here is what h really is");
-    console.log(h.redisLPop);
-    let [readToLine, err] = await h.handle(h.redisLPop(this.client, this.namespace, `admin_${this.namespace}_readToLine`));
-
-    if(err) {
-      readToLine = 0;
-    }
-
-    try {
-      readToLine = parseInt(readToLine)
-    }
-    catch {
-      readToLine = 0;
-    }
-
-    this.seek(readToLine); // seeks to the appropriate line
-    this.linesRead = 0;
-  }
-
-  seek(readToLine) {
-    let linesRead = 0;
-    while((linesRead < readToLine) && (line = readstream.next())) {
-      linesRead++;
-    }
-    this.linesRead = linesRead;
-  }
-
-  addJobsLoop() {
-    let jobsInterval = setInterval(() => {
-      let jobsPendingCount = 0; // something
-      let jobsToAdd = 5 * this.jobsPerSecond;
-      let jobsAdded = 0;
-      let line = null;
-      if(jobsPendingCount < jobsToAdd) {
-        while((line = this.readstream.next()) && (jobsAdded < jobsToAdd)) {
-          let rawData = line.toString().trim().split(this.separator);
-          console.log(rawData);
-          let job = {};
-          let metadata = {};
-          for(let i = 0; i < this.fields.length; i++) {
-            if(this.metadataFields.has(this.fields[i])) {
-              metadata[this.fields[i]] = rawData[i];
-            }
-            else {
-              job[this.fields[i]] = rawData[i];
-            }
-          }
-          this.addJob(job, metadata);
-        }
-        if(!line) {
-          this.readAllLines = true;
-          clearInterval(jobsInterval);
-        }
-      }
-    });
-  }
-
-  onNextJob(job) {
-    if(this.readAllLines && job === null) {
-      console.log("no jobs left!");
-    }
   }
 }
 
@@ -274,7 +225,7 @@ function testDistributor() {
     metadataFields: []
   });
   //d.start();
-  //d.addJobsLoop();
+  d.addJobsLoop();
   d.addRelaySocket("http://localhost:8081");
   d.addRelaySocket("http://localhost:8082");
   //d.addRelaySocket("http://localhost:8082");

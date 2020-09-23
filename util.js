@@ -23,6 +23,19 @@ class Util {
     });
   }
 
+  static async redisSetRem(client, namespace, key) {
+    return new Promise((accept, reject) => {
+      client.srem(`${namespace}_${key}`, (err, res) => {
+        if(err) {
+          reject(err);
+        }
+        else {
+          accept(res);
+        }
+      });
+    });
+  }
+
   static async redisSetPop(client, namespace, key, value) {
     return new Promise((accept, reject) => {
       if(typeof(value) === "Object") {
@@ -45,6 +58,32 @@ class Util {
         value = JSON.stringify(value);
       }
       client.set(`${namespace}_${key}`, value, (err, res) => {
+        if(err) {
+          reject(err);
+        }
+        else {
+          accept(res);
+        }
+      });
+    });
+  }
+
+  static async redisGet(client, namespace, key) {
+    return new Promise((accept, reject) => {
+      client.get(`${namespace}_${key}`, (err, res) => {
+        if(err) {
+          reject(err);
+        }
+        else {
+          accept(res);
+        }
+      });
+    });
+  }
+
+  static async redisDel(client, namespace, key) {
+    return new Promise((accept, reject) => {
+      client.del(`${namespace}_${key}`, (err, res) => {
         if(err) {
           reject(err);
         }

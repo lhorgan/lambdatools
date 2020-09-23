@@ -28,7 +28,7 @@ class LambdaClient {
       let task;
       if(task = this.queue.pop()) {
         console.log("HERE IS OUR JOB " + JSON.stringify(task));
-        await this.executeJob(task);
+        let result = await this.executeJob(task);
 
         console.log("QUEUE LENGTH: " + this.queue.length);
         for(let i = this.queue.length; i < this.maxQueueLength; i++) {
@@ -59,7 +59,7 @@ class LambdaClient {
 
   async sleep(millis) {
     return new Promise((accept) => {
-      setTimeout(() => {
+      setTimeout(() => { 
         accept();
       }, millis);
     });
@@ -114,7 +114,7 @@ class MockClient extends LambdaClient {
   async executeJob(job) {
     await this.sleep(1000);
     console.log("Executed task " + JSON.stringify(job));
-    
+    return Math.random() * 500;
   }
 
   async cleanup() {

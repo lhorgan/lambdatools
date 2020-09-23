@@ -28,13 +28,21 @@ class Relay {
     this.lambdaInfos = {};
 
     this.maxDepth = 1; // max number of lambdas per function name
+
+    this.completedJobs = [];
   }
 
   listenHTTP() {
+    // Listen on the port specified in console args
     this.server.listen(this.relayPort, ()  => {
       console.log("App listening on port " + this.relayPort);
     });
 
+    /**
+     * JOBS endpoint
+     * expects a list of jobs in the request body
+     * sends 200
+     */
     this.app.post("/jobs", (req, res) => {
       console.log("jobs received");
       console.log(req.body);
@@ -47,7 +55,11 @@ class Relay {
 
       res.send({"status": 200});
     });
-
+    
+    /**
+     * LAMBDAS endpoint
+     * expects a list of {name: "LambdaName", region: "LambdaRegion"}
+     */
     this.app.post("/lambdas", (req, res) => {
       let lambdaArray = req.body;
       this.invokeLambdas(lambdaArray);
@@ -66,6 +78,13 @@ class Relay {
         this.coordinatorSocket.disconnect();
       }
       this.coordinatorSocket = socket;
+
+      setInterval(() => { // periodically send completed jobs
+        if(this.completedJobs.length > 0) {
+          this.coordinatorSocket.send({type: "jobsComplete", jobsArray: this.completedJobs});
+          this.completedJobs = [];
+        }
+      }, 1000);
     });
 
     this.lambdaNamespace.on("connect", (socket) => {
@@ -100,8 +119,9 @@ class Relay {
             }
           }
           else if(message.type === "jobComplete") {
+            console.log("JOB COMPLETED!");
             console.log(message);
-            this.coordinatorSocket.send(message);
+            this.completedJobs.push(message);
           }
         });
       }
@@ -118,6 +138,9 @@ class Relay {
     }
     if(this.lambdaSockets[functionName].length < this.maxDepth) {
       this.lambdaSockets[functionName].add(socket.id);
+    }
+    else {
+      // we want this function to end itself
     }
   }
 
