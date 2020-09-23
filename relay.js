@@ -161,5 +161,7 @@ class Relay {
   }
 }
 
-console.log(process.argv[2]);
-let e = new Relay(process.argv[2]);
+exports.Relay = Relay;
+
+// console.log(process.argv[2]);
+// let e = new Relay(process.argv[2]);

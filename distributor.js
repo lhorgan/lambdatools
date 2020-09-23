@@ -213,22 +213,4 @@ class Distributor {
   }
 }
 
-function testDistributor() {
-  let d = new TSVDistributor({
-    retryCount: 0,
-    relayIps: ["http://localhost:8081"],
-    lambdaNames: ["hi"],
-    jobsPerSecond: 3,
-    namespace: "abctest",
-    inputFile: "dummydata.csv",
-    separator: ",",
-    metadataFields: []
-  });
-  //d.start();
-  d.addJobsLoop();
-  d.addRelaySocket("http://localhost:8081");
-  d.addRelaySocket("http://localhost:8082");
-  //d.addRelaySocket("http://localhost:8082");
-}
-
-testDistributor();
+exports.Distributor = Distributor;
