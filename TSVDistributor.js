@@ -2,7 +2,7 @@ const Distributor = require('./distributor.js').Distributor;
 
 class TSVDistributor extends Distributor {
   constructor(config) {
-    super(config);
+    super("8000");
     this.configure(config);
   }
 
@@ -82,5 +82,14 @@ class TSVDistributor extends Distributor {
   }
 }
 
-let d = new TSVDistributor();
+let d = new TSVDistributor({
+  retryCount: 0,
+  relayIps: ["http://172.31.51.16:8081"],
+  lambdaNames: ["hi"],
+  jobsPerSecond: 3,
+  namespace: "abctest",
+  inputFile: "dummydata.csv",
+  separator: ",",
+  metadataFields: []
+});
 d.addRelaySocket("http://172.31.51.16:8081");
