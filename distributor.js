@@ -133,7 +133,7 @@ class Distributor {
     .then(data => {
         console.log("jobs sent");
     })
-    .catch(err => {
+    .catch(async (err) => {
         console.log(err);
         console.log(`Something seems to have gone wrong sending the jobs to relay node ${relayURL}...`);
         for(let i = 0; i < jobs.length; i++) {
