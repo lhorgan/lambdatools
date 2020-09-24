@@ -1,9 +1,12 @@
 const Distributor = require('./distributor.js').Distributor;
+const h = require('./util.js')._Util; // h for helpers
+
+const lineByLine = require('n-readlines');
 
 class TSVDistributor extends Distributor {
   constructor(config) {
     super("8000");
-    this.configure(config);
+    //this.configure(config);
   }
 
   async configure(config) {
@@ -78,18 +81,18 @@ class TSVDistributor extends Distributor {
   }
 
   writeJobs() {
-    console.log("writing jobs");
+    //console.log("writing jobs");
   }
 }
 
-let d = new TSVDistributor({
-  retryCount: 0,
-  relayIps: ["http://172.31.51.16:8081"],
-  lambdaNames: ["hi"],
-  jobsPerSecond: 3,
-  namespace: "abctest",
-  inputFile: "dummydata.csv",
-  separator: ",",
-  metadataFields: []
-});
-d.addRelaySocket("http://172.31.51.16:8081");
+// let d = new TSVDistributor({
+//   retryCount: 0,
+//   relayIps: ["http://172.31.51.16:8081"],
+//   lambdaNames: ["hi"],
+//   jobsPerSecond: 3,
+//   namespace: "abctest",
+//   inputFile: "dummydata.csv",
+//   separator: ",",
+//   metadataFields: []
+// });
+//d.addRelaySocket("http://172.31.51.16:8081");

@@ -1,5 +1,4 @@
 const redis = require("redis");
-const lineByLine = require('n-readlines');
 const fetch = require('node-fetch');
 const passport = require('passport');
 
@@ -42,8 +41,11 @@ class Distributor {
   }
 
   async addRelaySocket(relayURL) {
-    console.log("opening a connection...");
+    console.log(`opening a connection to ${relayURL}...`);
     let socket = this.io(`${relayURL}/coordinator`);
+    socket.on('connect', function(){
+      console.log("WE ARE CONNECTED!");
+    });
     this.relaySockets[relayURL] = socket;
     let sendingWork = false;
 
