@@ -1,6 +1,7 @@
 const redis = require("redis");
 const fetch = require('node-fetch');
-const passport = require('passport');
+const md5 = require("md5");
+//const passport = require('passport');
 
 const h = require('./util.js')._Util; // h for helpers
 
@@ -18,6 +19,7 @@ class Distributor {
     this.jobsPerRelay = 50; // jobs per relay per request
 
     this.relaySockets = {};
+    this.jobsInFlight = {};
 
     this.io = require('socket.io-client');
     console.log("setting up this.io");
@@ -200,7 +202,7 @@ class Distributor {
   // job is the job itself, what you want sent to be processed
   // metadata is any information you want to be associated with the job
   addJob(job, metadata, id) {
-    let jobID = id || this.randomString();
+    let jobID = id /*|| this.randomString()*/ || md5(JSON.stringify(job));
     console.log("ADDING JOB " + JSON.stringify(job));
     h.redisLPush(this.client, this.namespace, "jobs", {"job": job, "metadata": metadata, "id": jobID});
     return jobID;

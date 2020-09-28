@@ -9,7 +9,7 @@ class Util {
 
   static async redisSetAdd(client, namespace, key, value) {
     return new Promise((accept, reject) => {
-      if(typeof(value) === "Object") {
+      if(typeof(value) === "object") {
         value - JSON.stringify(value);
       }
       client.sadd(`${namespace}_${key}`, value, (err, res) => {
@@ -38,7 +38,7 @@ class Util {
 
   static async redisSetPop(client, namespace, key, value) {
     return new Promise((accept, reject) => {
-      if(typeof(value) === "Object") {
+      if(typeof(value) === "object") {
         value - JSON.stringify(value);
       }
       client.sadd(`${namespace}_${key}`, value, (err, res) => {
@@ -54,7 +54,7 @@ class Util {
 
   static async redisSet(client, namespace, key, value) {
     return new Promise((accept, reject) => {
-      if(typeof(value) === "Object") {
+      if(typeof(value) === "object") {
         value = JSON.stringify(value);
       }
       client.set(`${namespace}_${key}`, value, (err, res) => {

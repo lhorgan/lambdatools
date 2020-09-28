@@ -5,8 +5,8 @@ const lineByLine = require('n-readlines');
 
 class TSVDistributor extends Distributor {
   constructor(config) {
-    super("8000");
-    //this.configure(config);
+    super(config);
+    this.configure(config);
   }
 
   async configure(config) {
@@ -15,27 +15,30 @@ class TSVDistributor extends Distributor {
     this.separator = config.separator || "\t";
     this.metadataFields = new Set([]);
 
+
     this.fields = this.readstream.next().toString().trim().split(this.separator);
     let [readToLine, err] = await h.handle(h.redisGet(this.client, this.namespace, `admin_readToLine`));
+
+    console.log("We have read to line " + readToLine);
 
     if(err) {
       readToLine = 0;
     }
 
-    try {
-      readToLine = parseInt(readToLine)
-    }
-    catch {
+    readToLine = parseInt(readToLine);
+    if(isNaN(readToLine)) {
       readToLine = 0;
     }
 
     this.seek(readToLine); // seeks to the appropriate line
-    this.linesRead = 0;
+    this.addJobsLoop();
+    //this.linesRead = 0;
   }
 
   seek(readToLine) {
     let linesRead = 0;
-    while((linesRead < readToLine) && (line = readstream.next())) {
+    let line;
+    while((linesRead < readToLine) && (line = this.readstream.next())) {
       linesRead++;
     }
     this.linesRead = linesRead;
@@ -47,6 +50,10 @@ class TSVDistributor extends Distributor {
       let jobsToAdd = 5 * this.jobsPerSecond;
       let jobsAdded = 0;
       let line = null;
+
+      console.log("ADDING JOBS");
+      console.log(jobsPendingCount + ", " + jobsToAdd);
+
       if(jobsPendingCount < jobsToAdd) {
         while((line = this.readstream.next()) && (jobsAdded < jobsToAdd)) {
           let rawData = line.toString().trim().split(this.separator);
@@ -87,7 +94,7 @@ class TSVDistributor extends Distributor {
 
 let d = new TSVDistributor({
   retryCount: 0,
-  relayIps: ["http://172.31.51.16:8081"],
+  relayIps: ["http://172.31.74.199:8081"],
   lambdaNames: ["hi"],
   jobsPerSecond: 3,
   namespace: "abctest",
@@ -95,4 +102,4 @@ let d = new TSVDistributor({
   separator: ",",
   metadataFields: []
 });
-d.addRelaySocket("http://172.31.51.16:8081");
+d.addRelaySocket("http://172.31.74.199:8081");
