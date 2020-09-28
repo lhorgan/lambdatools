@@ -36,12 +36,9 @@ class Util {
     });
   }
 
-  static async redisSetPop(client, namespace, key, value) {
+  static async redisSetPop(client, namespace, key) {
     return new Promise((accept, reject) => {
-      if(typeof(value) === "object") {
-        value - JSON.stringify(value);
-      }
-      client.sadd(`${namespace}_${key}`, value, (err, res) => {
+      client.spop(`${namespace}_${key}`, (err, res) => {
         if(err) {
           reject(err);
         }

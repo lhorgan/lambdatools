@@ -28,9 +28,6 @@ class Distributor {
       console.error("Error " + err);
     });
 
-    console.log("Loading backed up jobs from previous run...");
-    this.loadBackedUpJobs();
-
     this.jobsToWrite = [];
 
     let writeInterval = setInterval(() => {
@@ -39,7 +36,33 @@ class Distributor {
   }
 
   async loadBackedUpJobs() {
+    console.log("Loading backed up jobs...");
 
+    //await h.redisSetAdd(this.client, this.namespace, "jobsInFlight", job.id);
+
+    let backedUpJobID = null;
+    let err = null;
+    do {
+      [backedUpJobID, err] = await h.handle(h.redisSetPop(this.client, this.namespace, "jobsInFlight"));
+      if(err) {
+        console.error(err);
+        continue;
+      }
+      else if(backedUpJobID === null) {
+        break;
+      }
+
+      let [backedUpJob, buErr] = await h.handle(h.redisGet(this.client, this.namespace, backedUpJobID));
+      if(buErr) {
+        console.error(err);
+        continue;
+      }
+      else if(backedUpJob === null) {
+        console.error(`No such job ${backedUpJobID}`);
+        continue;
+      }
+      this.addJob(backedUpJob.job, backedUpJob.metadata, backedUpJob.id);
+    } while(backedUpJobID !== null);
   }
 
   async addRelaySocket(relayURL) {

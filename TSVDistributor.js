@@ -10,11 +10,12 @@ class TSVDistributor extends Distributor {
   }
 
   async configure(config) {
+    await this.loadBackedUpJobs();
+    
     console.log("configuring");
     this.readstream = new lineByLine(config.inputFile);
     this.separator = config.separator || "\t";
     this.metadataFields = new Set([]);
-
 
     this.fields = this.readstream.next().toString().trim().split(this.separator);
     let [readToLine, err] = await h.handle(h.redisGet(this.client, this.namespace, `admin_readToLine`));
@@ -32,7 +33,6 @@ class TSVDistributor extends Distributor {
 
     this.seek(readToLine); // seeks to the appropriate line
     this.addJobsLoop();
-    //this.linesRead = 0;
   }
 
   seek(readToLine) {
