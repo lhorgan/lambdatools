@@ -4,6 +4,7 @@ const md5 = require("md5");
 //const passport = require('passport');
 
 const h = require('./util.js')._Util; // h for helpers
+const ec2 = require("./ec2_launcher").EC2Launcher;
 
 class Distributor {
   constructor(config) {
@@ -43,7 +44,7 @@ class Distributor {
     let backedUpJobID = null;
     let err = null;
     do {
-      [backedUpJobID, err] = await h.handle(h.redisSetPop(this.client, this.namespace, "jobsInFlight"));
+      [backedUpJobID, err] = await h.attempt(h.redisSetPop(this.client, this.namespace, "jobsInFlight"));
       if(err) {
         console.error(err);
         continue;
@@ -52,7 +53,7 @@ class Distributor {
         break;
       }
 
-      let [backedUpJob, buErr] = await h.handle(h.redisGet(this.client, this.namespace, backedUpJobID));
+      let [backedUpJob, buErr] = await h.attempt(h.redisGet(this.client, this.namespace, backedUpJobID));
       if(buErr) {
         console.error(err);
         continue;
@@ -194,7 +195,7 @@ class Distributor {
   }
 
   async getNextJob() {
-    let [job, err] = await h.handle(h.redisLPop(this.client, this.namespace, "jobs"));
+    let [job, err] = await h.attempt(h.redisLPop(this.client, this.namespace, "jobs"));
     console.log(job);
     
     if(err) {
@@ -209,7 +210,7 @@ class Distributor {
   }
 
   async getJobsCount() {
-    let [count, err] = await h.handle(h.redisLen(this.client, this.namespace, "jobs"));
+    let [count, err] = await h.attempt(h.redisLen(this.client, this.namespace, "jobs"));
     if(err) {
       console.error(err);
       return null;

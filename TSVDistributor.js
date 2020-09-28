@@ -18,7 +18,7 @@ class TSVDistributor extends Distributor {
     this.metadataFields = new Set([]);
 
     this.fields = this.readstream.next().toString().trim().split(this.separator);
-    let [readToLine, err] = await h.handle(h.redisGet(this.client, this.namespace, `admin_readToLine`));
+    let [readToLine, err] = await h.attempt(h.redisGet(this.client, this.namespace, `admin_readToLine`));
 
     console.log("We have read to line " + readToLine);
 

@@ -55,7 +55,7 @@ class Relay {
       for(let i = 0; i < jobs.length; i++) { // add all the jobs to the queue
         this.queue.push(jobs[i]);
       }
-      console.log("QUEUE LENGHT NOW " + this.queue.length);
+      console.log("QUEUE LENGTH NOW " + this.queue.length);
 
       res.send({"status": 200});
     });
@@ -115,6 +115,10 @@ class Relay {
               socket.send({type: "job", job}); 
             }
             if(this.queue.length < 25 && !this.pendingWorkRequest) {
+              if(!this.coordinatorSocket) {
+                console.log("coordinator not yet connected....");
+                return;
+              }
               this.coordinatorSocket.send({type: "moreWork"});
               this.pendingWorkRequest = true;
               setTimeout(() => {
@@ -155,12 +159,16 @@ class Relay {
   }
 
   invokeLambdas(lambdaInfos) {
+    console.log("Invoking lambdas...");
+    console.log(lambdaInfos);
     for(let i = 0; i < lambdaInfos.length; i++) {
+      console.log("INVOKING LAMBDA " + i);
       this.invokeLambda(lambdaInfos[i]);
     }
   }
 
   invokeLambda(lambdaInfo) {
+    console.log("cripes");
     return;
   }
 }

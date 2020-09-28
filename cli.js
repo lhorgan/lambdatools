@@ -215,7 +215,7 @@ class CLI {
         }
       ]}]
     };
-    let [coordinator, coordErr] = await h.handle(this.ec2Util.createInstance(coordinatorConfig, 
+    let [coordinator, coordErr] = await h.attempt(this.ec2Util.createInstance(coordinatorConfig, 
       coordinatorLaunchScriptPath.path,
       1,
       "us-east-1"));
@@ -243,7 +243,7 @@ class CLI {
         }
       ]}]
     }
-    let [relays, relayErr] = await h.handle(this.ec2Util.createInstance(relaysConfig, 
+    let [relays, relayErr] = await h.attempt(this.ec2Util.createInstance(relaysConfig, 
       relayLaunchScriptPath.path,
       relayCount.count,
       "us-east-1"));
