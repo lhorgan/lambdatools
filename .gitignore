@@ -1,0 +1,3 @@
+node_modules/*
+dummydata.csv
+package-lock.json
