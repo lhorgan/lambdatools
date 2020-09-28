@@ -14,6 +14,7 @@ class Relay {
     this.lambdaNamespace = this.io.of("/lambda");
 
     this.lambdaSockets = {};
+    this.relayURLs = [];
 
     this.app.use(bodyParser.json());
     this.listenHTTP();
@@ -46,7 +47,10 @@ class Relay {
     this.app.post("/jobs", (req, res) => {
       console.log("jobs received");
       console.log(req.body);
-      let jobs = req.body;
+      let jobs = req.body.jobs;
+      this.relayURLs = req.body.relayURLs;
+      console.log("RELAY URLS:");
+      console.log(this.relayURLs);
 
       for(let i = 0; i < jobs.length; i++) { // add all the jobs to the queue
         this.queue.push(jobs[i]);

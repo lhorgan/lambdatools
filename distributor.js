@@ -150,6 +150,9 @@ class Distributor {
   }
 
   sendJobs(relayURL, jobsToSend) {
+    let body = {jobs: jobsToSend};
+    body["relayURLs"] = Object.keys(this.relaySockets); // relays need to know all the relay URLs
+
     fetch(relayURL + "/jobs", {
       method: "post",
       body: JSON.stringify(jobsToSend),
