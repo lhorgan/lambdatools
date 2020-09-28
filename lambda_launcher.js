@@ -35,7 +35,7 @@ class LambdaLauncher {
       return;
     }
 
-    /*let [bucketCreateRes, bucketCreateErr] = await h.handle(this.createBucket({
+    /*let [bucketCreateRes, bucketCreateErr] = await h.attempt(this.createBucket({
       Bucket: "lambda-bucket-917"
     }, "us-east-1"));
 
@@ -50,7 +50,7 @@ class LambdaLauncher {
       Bucket: "lambda-bucket-917",
       Key: "functionCode"
     }
-    let [uploadResult, uploadErr] = await h.handle(this.uploadFile("./testzip.zip", bucketParams, "us-east-1"));
+    let [uploadResult, uploadErr] = await h.attempt(this.uploadFile("./testzip.zip", bucketParams, "us-east-1"));
     if(uploadErr) {
       console.error(uploadErr);
       return;

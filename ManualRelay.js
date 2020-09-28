@@ -14,7 +14,7 @@ class ManualRelay extends Relay {
 
     AWS.config.update({region: lambdaInfo.region});
     var lambda = new AWS.Lambda();
-    let payload = {"relayURLs": ["http://172.31.74.199:8081"]};
+    let payload = {"relayURLs": this.relayURLs};
 
     let params = {
       FunctionName: lambdaInfo.name,

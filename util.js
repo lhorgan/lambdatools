@@ -1,7 +1,7 @@
 class Util {
   constructor() {}
 
-  static handle(promise) {
+  static attempt(promise) {
     return promise
       .then(data => [data, null])
       .catch(error => Promise.resolve([null, error]));
