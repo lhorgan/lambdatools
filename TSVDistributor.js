@@ -19,7 +19,7 @@ class TSVDistributor extends Distributor {
     this.inputSeparator = config.inputSeparator || "\t";
     this.outputSeparator = config.outputSeparator || "\t";
     
-    this.metaDataFields = config.metadataFields;
+    this.metadataFields = config.metadataFields;
     this.metadataFieldsSet = new Set(this.metadataFields);
     this.resultFields = config.resultFields;
     this.resultFieldsSet = new Set(this.resultFields);
@@ -44,7 +44,7 @@ class TSVDistributor extends Distributor {
           }
         }
       }
-      this.outfileWriteStream.write(headerArr.join("\t"));
+      this.outfileWriteStream.write(headerArr.join("\t")  + "\r\n");
     }
 
     let [readToLine, err] = await h.attempt(h.redisGet(this.client, this.namespace, `admin_readToLine`));
@@ -117,21 +117,28 @@ class TSVDistributor extends Distributor {
   }
 
   async writeJobs(jobsToWrite) {
+    console.log("well, we should be writing:");
+    console.log(JSON.stringify(jobsToWrite));
     let jobsArr = [];
 
     for(let i = 0; i < jobsToWrite.length; i++) {
+      console.log("JOB WE ARE ABOUT TO WRITE");
+      console.log(jobsToWrite[i]);
       let result = jobsToWrite[i].result;
       let originalJob = jobsToWrite[i].originalJob;
       let jobArr = [];
       for(let j = 0; j < this.resultFields.length; j++) {
-        if(this.resultFields[j] in result) {
+        if(result && this.resultFields[j] in result) {
+          console.log("Adding " + this.resultFields[j] + " to the list...");
           jobArr.push(result[this.resultFields[j]]);
         }
         else {
           jobArr.push("");
         }
       }
-      for(let j = 0; j < this.fields.length; i++) {
+      console.log("Neato");
+      console.log(this.metadataFieldsSet);
+      for(let j = 0; j < this.fields.length; j++) {
         if(this.metadataFieldsSet.has(this.fields[j])) {
           if(this.writeMetadata) {
             if(this.fields[j] in originalJob) {
@@ -168,9 +175,12 @@ let d = new TSVDistributor({
   inputSeparator: "\t",
   outputSeparator: "\t",
   metadataFields: ["gender", "age", "race", "language", "uses_twitter", "which_handle", "original_lacked_at", "original_had_space", "masked_id", "retrieval_status"],
-  resultFields: [],
+  resultFields: ["dummy"],
   writeOriginalJob: true,
   writeMetadata: false,
   relayPort: "8081"
 });
 d.getRelays();
+// setTimeout(() => {
+//   d.writeJobs([{"originalJob":{"job":{"handle":"@michaelloget","state":"New York","gender":"male","age":"27","race":"African American","language":"English","uses_twitter":"no or no answer","which_handle":"3","original_lacked_at":"TRUE","original_had_space":"FALSE","masked_id":"11847","retrieval_status":"success","handle_as_per_twitter":"MichaelLoget","name_as_per_twitter":"Michael Loget","location_as_per_twitter":"","tweet_count":"23","following":"63","followers":"12"},"metadata":{},"id":"9c4f2168a4f5298665921fd2d4e31d74"},"result":{"dummy":0.6400064357611768},"id":"9c4f2168a4f5298665921fd2d4e31d74"}]);
+// }, 2000);

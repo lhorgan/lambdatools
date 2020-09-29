@@ -23,9 +23,9 @@ class Util {
     });
   }
 
-  static async redisSetRem(client, namespace, key) {
+  static async redisSetRem(client, namespace, key, value) {
     return new Promise((accept, reject) => {
-      client.srem(`${namespace}_${key}`, (err, res) => {
+      client.srem(`${namespace}_${key}`, value, (err, res) => {
         if(err) {
           reject(err);
         }

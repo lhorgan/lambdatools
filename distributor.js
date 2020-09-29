@@ -40,7 +40,13 @@ class Distributor {
       for(let i = 0; i < this.jobsToWrite.length; i++) {
         let id = this.jobsToWrite[i].id;
         let result = this.jobsToWrite[i].result;
+        console.log("PSSST RESULT");
+        console.log(result);
         let originalJob = this.jobsInFlight[id];
+        if(!originalJob) {
+          console.log("It's possible that this job is from a previous run....");
+          continue;
+        }
         jobs.push({originalJob: originalJob, result: result, id: id});
       }
       console.log(jobs);
@@ -148,7 +154,7 @@ class Distributor {
             
             if(failCount < this.retryCount) {
               h.redisSet(this.client, this.namespace, `${workedJobs[i].id}_failCount`, failCount + 1);
-              await this.clearJobInFlight();
+              await this.clearJobInFlight(originalJob.id);
               this.addJob(originalJob.job, originalJob.metadata, originalJob.id); // we await clearing the job so we don't accidentally clear it again before it's been added
             }
             else {
@@ -172,10 +178,18 @@ class Distributor {
     await h.redisSet(this.client, this.namespace, job.id, job);
   }
 
-  async clearJobInFlight(job) {
-    this.jobsInFlight[job.id] = undefined;
-    await h.redisSetRem(this.client, this.namespace, "jobsInFlight", job.id);
-    await h.redisDel(this.client, this.namespace, job.id);
+  async clearJobInFlight(jobID) {
+    this.jobsInFlight[jobID] = undefined;
+    let [res1, err1] = await h.attempt(h.redisSetRem(this.client, this.namespace, "jobsInFlight", jobID));
+    if(err1) {
+      console.log("Woops, couldn't remove job " + jobID + " from the set.");
+      console.error(err1);
+    }
+    let [res2, err2] = await h.attempt(h.redisDel(this.client, this.namespace, jobID));
+    if(err2) {
+      console.log("Woops, couldn't remove job " + jobID + " from the database.");
+      console.error(err2);
+    }
   }
 
   sendJobs(relayURL, jobsToSend) {
