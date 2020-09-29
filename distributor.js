@@ -60,6 +60,33 @@ class Distributor {
     }, 1000);
   }
 
+  async writeJobsLoop() {
+    while(true) { 
+      console.log("Time to write some jobs to file!")
+      let jobs = [];
+      for(let i = 0; i < this.jobsToWrite.length; i++) {
+        let id = this.jobsToWrite[i].id;
+        let result = this.jobsToWrite[i].result;
+        console.log("PSSST RESULT");
+        console.log(result);
+        let originalJob = this.jobsInFlight[id];
+        if(!originalJob) {
+          console.log("It's possible that this job is from a previous run....");
+          continue;
+        }
+        jobs.push({originalJob: originalJob, result: result, id: id});
+      }
+      console.log(jobs);
+
+      await this.writeJobs(jobs);
+
+      for(let i = 0; i < this.jobsToWrite.length; i++) {
+        this.clearJobInFlight(this.jobsToWrite[i].id);
+      }
+      await this.sleep(1000);
+    }
+  }
+
   async loadBackedUpJobs() {
     console.log("Loading backed up jobs...");
 
@@ -179,7 +206,7 @@ class Distributor {
   }
 
   async clearJobInFlight(jobID) {
-    this.jobsInFlight[jobID] = undefined;
+    delete this.jobsInFlight[jobID];
     let [res1, err1] = await h.attempt(h.redisSetRem(this.client, this.namespace, "jobsInFlight", jobID));
     if(err1) {
       console.log("Woops, couldn't remove job " + jobID + " from the set.");

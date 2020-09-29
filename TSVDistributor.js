@@ -75,13 +75,13 @@ class TSVDistributor extends Distributor {
 
   async addJobsLoop() {
     let jobsInterval = setInterval(async () => {
-      let jobsPendingCount = 0; // something
+      let jobsPendingCount = Object.keys(this.jobsInFlight).length; // something
       let jobsToAdd = 5 * this.jobsPerSecond;
       let jobsAdded = 0;
       let line = null;
 
       console.log("ADDING JOBS");
-      console.log(jobsPendingCount + ", " + jobsToAdd);
+      console.log("PENDING, ADDING:" + jobsPendingCount + ", " + jobsToAdd);
 
       if(jobsPendingCount < jobsToAdd) {
         while((line = this.readstream.next()) && (jobsAdded < jobsToAdd)) {
@@ -98,6 +98,7 @@ class TSVDistributor extends Distributor {
             }
           }
           this.addJob(job, metadata);
+          jobsAdded++;
           this.linesRead++; // another line has been read
         }
         if(!line) {
@@ -167,7 +168,7 @@ class TSVDistributor extends Distributor {
 let d = new TSVDistributor({
   retryCount: 0,
   lambdaNames: [{name: "TestFunc120", region: "us-east-1"}],
-  jobsPerSecond: 3,
+  jobsPerSecond: 1,
   namespace: "abctest",
   relayNamespace: "whylord",
   inputFile: "merged.tsv",
