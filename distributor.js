@@ -34,30 +34,7 @@ class Distributor {
 
     this.jobsToWrite = [];
 
-    let writeInterval = setInterval(async () => {
-      console.log("Time to write some jobs to file!")
-      let jobs = [];
-      for(let i = 0; i < this.jobsToWrite.length; i++) {
-        let id = this.jobsToWrite[i].id;
-        let result = this.jobsToWrite[i].result;
-        console.log("PSSST RESULT");
-        console.log(result);
-        let originalJob = this.jobsInFlight[id];
-        if(!originalJob) {
-          console.log("It's possible that this job is from a previous run....");
-          continue;
-        }
-        jobs.push({originalJob: originalJob, result: result, id: id});
-      }
-      console.log(jobs);
-
-      await this.writeJobs(jobs);
-
-      for(let i = 0; i < this.jobsToWrite.length; i++) {
-        this.clearJobInFlight(this.jobsToWrite[i].id);
-      }
-      
-    }, 1000);
+    this.writeJobsLoop();
   }
 
   async writeJobsLoop() {
