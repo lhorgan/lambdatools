@@ -28,7 +28,7 @@ class Relay {
 
     this.lambdaInfos = {};
 
-    this.maxDepth = 1; // max number of lambdas per function name
+    this.maxDepth = 50; // max number of lambdas per function name
 
     this.completedJobs = [];
   }
@@ -65,11 +65,13 @@ class Relay {
      * expects a list of {name: "LambdaName", region: "LambdaRegion"}
      */
     this.app.post("/lambdas", (req, res) => {
+      console.log("Lambdas recieved!");
+      console.log(req.body);
       let lambdaArray = req.body;
       this.invokeLambdas(lambdaArray);
 
       for(let i = 0; i < lambdaArray.length; i++) {
-        this.lambdaInfos[lambdaArray[i]].name = lambdaArray[i];
+        this.lambdaInfos[lambdaArray[i].name] = lambdaArray[i];
       }
     });
   }
@@ -128,7 +130,7 @@ class Relay {
           }
           else if(message.type === "jobComplete") {
             console.log("JOB COMPLETED!");
-            console.log(message);
+            console.log(JSON.stringify(message));
             this.completedJobs.push(message);
           }
         });
