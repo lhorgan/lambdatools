@@ -35,6 +35,7 @@ class Distributor {
     this.jobsToWrite = [];
 
     let writeInterval = setInterval(async () => {
+      console.log("Time to write some jobs to file!")
       let jobs = [];
       for(let i = 0; i < this.jobsToWrite.length; i++) {
         let id = this.jobsToWrite[i].id;
@@ -42,6 +43,7 @@ class Distributor {
         let originalJob = this.jobsInFlight[id];
         jobs.push({originalJob: originalJob, result: result, id: id});
       }
+      console.log(jobs);
 
       await this.writeJobs(jobs);
 
@@ -68,21 +70,27 @@ class Distributor {
       else if(backedUpJobID === null) {
         break;
       }
+      console.log("Loading backed up job with id " + backedUpJobID);
 
       let [backedUpJob, buErr] = await h.attempt(h.redisGet(this.client, this.namespace, backedUpJobID));
       if(buErr) {
         console.error(err);
         continue;
       }
-      else if(backedUpJob === null) {
+      else if(!backedUpJob) {
         console.error(`No such job ${backedUpJobID}`);
         continue;
       }
+      console.log("Here is the backed up job");
+      console.log(backedUpJob);
+      backedUpJob = JSON.parse(backedUpJob);
       this.addJob(backedUpJob.job, backedUpJob.metadata, backedUpJob.id);
     } while(backedUpJobID !== null);
   }
 
   async addRelaySocket(relayURL) {
+    //this.sendLambdas(relayURL);
+
     console.log(`opening a connection to ${relayURL}...`);
     let socket = this.io(`${relayURL}/coordinator`);
     socket.on('connect', function(){
@@ -119,10 +127,14 @@ class Distributor {
         sendingWork = false;
       }
       else if(message.type === "jobsComplete") {
+        console.log("JOBS COMPLETE!");
         console.log(message);
         let workedJobs = message.jobsArray;
         for(let i = 0; i < workedJobs.length; i++) {
-          if(workedJobs[i].status === "successs") {
+          console.log(workedJobs[i]);
+          console.log(workedJobs[i].status);
+          if(workedJobs[i].status === "success") {
+            console.log("Pushing to jobs to write...");
             this.jobsToWrite.push(workedJobs[i]);
           }
           else if(workedJobs[i].status === "fail") {
@@ -172,7 +184,7 @@ class Distributor {
 
     fetch(relayURL + "/jobs", {
       method: "post",
-      body: JSON.stringify(jobsToSend),
+      body: JSON.stringify(body),
       headers: { 'Content-Type': 'application/json' }
     })
     .then(this.handleErrors)
@@ -189,6 +201,21 @@ class Distributor {
           this.addJob(originalJob.job, originalJob.metadata, originalJob.id);
         }
     });
+  }
+
+  sendLambdas(relayURL) {
+    console.log("LAMBDA NAMES!");
+    console.log(this.lambdaNames);
+    fetch(relayURL + "/lambdas", {
+      method: "post",
+      body: JSON.stringify({"lambdas": this.lambdaNames})
+    })
+    .then(data => {
+      console.log("Lambas sent");
+    })
+    .catch(err => {
+      console.error(err);
+    })
   }
   
   async sleep(millis) {

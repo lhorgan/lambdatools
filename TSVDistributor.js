@@ -25,6 +25,7 @@ class TSVDistributor extends Distributor {
     this.resultFieldsSet = new Set(this.resultFields);
     
     let writeHeader = fs.existsSync(config.outfile);
+    this.outfileWriteStream = fs.createWriteStream(config.outfile, {flags: "a"});
     this.fields = this.readstream.next().toString().trim().split(this.inputSeparator);
     if(writeHeader) {
       let headerArr = [];
@@ -43,8 +44,8 @@ class TSVDistributor extends Distributor {
           }
         }
       }
+      this.outfileWriteStream.write(headerArr.join("\t"));
     }
-    this.outfileWriteStream = fs.createWriteStream(config.outfile, {flags: "a"});
 
     let [readToLine, err] = await h.attempt(h.redisGet(this.client, this.namespace, `admin_readToLine`));
 
@@ -158,7 +159,7 @@ class TSVDistributor extends Distributor {
 
 let d = new TSVDistributor({
   retryCount: 0,
-  lambdaNames: ["TestFunc120"],
+  lambdaNames: [{name: "TestFunc120", region: "us-east-1"}],
   jobsPerSecond: 3,
   namespace: "abctest",
   relayNamespace: "whylord",
