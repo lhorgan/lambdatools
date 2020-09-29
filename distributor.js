@@ -4,7 +4,7 @@ const md5 = require("md5");
 //const passport = require('passport');
 
 const h = require('./util.js')._Util; // h for helpers
-const ec2 = require("./ec2_launcher").EC2Launcher;
+const EC2 = require("./ec2_launcher").EC2;
 
 class Distributor {
   constructor(config) {
@@ -13,11 +13,14 @@ class Distributor {
     this.onFail = config.onFail;
     this.jobToRow = config.jobToRow;
     this.relayNames = config.relayNames;
+    this.relayPort = config.relayPort;
     this.lambdaNames = config.lambdaNames;
     this.jobsPerSecond = config.jobsPerSecond;
     this.namespace = config.namespace;
+    this.relayNamespace = config.relayNamespace;
     this.client = redis.createClient();
     this.jobsPerRelay = 50; // jobs per relay per request
+    this.ec2Util = new EC2();
 
     this.relaySockets = {};
     this.jobsInFlight = {};
@@ -31,8 +34,21 @@ class Distributor {
 
     this.jobsToWrite = [];
 
-    let writeInterval = setInterval(() => {
-      this.writeJobs();
+    let writeInterval = setInterval(async () => {
+      let jobs = [];
+      for(let i = 0; i < this.jobsToWrite.length; i++) {
+        let id = this.jobsToWrite[i].id;
+        let result = this.jobsToWrite[i].result;
+        let originalJob = this.jobsInFlight[id];
+        jobs.push({originalJob: originalJob, result: result, id: id});
+      }
+
+      await this.writeJobs(jobs);
+
+      for(let i = 0; i < this.jobsToWrite.length; i++) {
+        this.clearJobInFlight(this.jobsToWrite[i].id);
+      }
+      
     }, 1000);
   }
 
@@ -235,12 +251,42 @@ class Distributor {
     return jobID;
   }
 
-  start() {
-    this.mainLoop();
+  async getRelays() {
+    let [instances, err] = await h.attempt(this.ec2Util.describeInstances([
+      {
+        Name: `tag:Name`,
+        Values: [`${this.relayNamespace}-relay*`]
+      },
+      {
+        Name: 'instance-state-name',
+        Values: ["running"]
+      },
+    ]));
+
+    if(err) {
+      console.error("Could not load relays.  Aborting.");
+      return;
+    }
+
+    for(let i = 0; i < instances.Reservations.length; i++) {
+      for(let j = 0; j < instances.Reservations[i].Instances.length; j++) {
+        let instance = instances.Reservations[i].Instances[j];
+        console.log(`Type: ${instance.InstanceType}`);
+        console.log(`Private IP: ${instance.PrivateIpAddress}`);
+        console.log(`Public URL: ${instance.PublicDnsName || 'None'}`);
+        console.log("\n");
+
+        this.addRelaySocket(`http://${instance.PrivateIpAddress}:${this.relayPort}`);
+      }
+    }
   }
 
   stop() {
     console.log("Not yet... sorry");
+  }
+
+  async writeJobs(jobs) {
+    // pass
   }
 }
 

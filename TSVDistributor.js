@@ -2,10 +2,12 @@ const Distributor = require('./distributor.js').Distributor;
 const h = require('./util.js')._Util; // h for helpers
 
 const lineByLine = require('n-readlines');
+const fs = require("fs");
 
 class TSVDistributor extends Distributor {
   constructor(config) {
     super(config);
+
     this.configure(config);
   }
 
@@ -14,10 +16,36 @@ class TSVDistributor extends Distributor {
     
     console.log("configuring");
     this.readstream = new lineByLine(config.inputFile);
-    this.separator = config.separator || "\t";
-    this.metadataFields = new Set([]);
+    this.inputSeparator = config.inputSeparator || "\t";
+    this.outputSeparator = config.outputSeparator || "\t";
+    
+    this.metaDataFields = config.metadataFields;
+    this.metadataFieldsSet = new Set(this.metadataFields);
+    this.resultFields = config.resultFields;
+    this.resultFieldsSet = new Set(this.resultFields);
+    
+    let writeHeader = fs.existsSync(config.outfile);
+    this.fields = this.readstream.next().toString().trim().split(this.inputSeparator);
+    if(writeHeader) {
+      let headerArr = [];
+      for(let i = 0; i < this.resultFields.length; i++) {
+        headerArr.push(this.resultFields[i]);
+      }
+      if(this.writeOriginalJob) {
+        for(let i = 0; i < this.fields.length; i++) {
+          if(this.metadataFieldsSet.has(this.fields[i])) {
+            if(this.writeMetadata) {
+              headerArr.push(this.fields[i]);
+            }
+          }
+          else {
+            headerArr.push(this.fields[i]);
+          }
+        }
+      }
+    }
+    this.outfileWriteStream = fs.createWriteStream(config.outfile, {flags: "a"});
 
-    this.fields = this.readstream.next().toString().trim().split(this.separator);
     let [readToLine, err] = await h.attempt(h.redisGet(this.client, this.namespace, `admin_readToLine`));
 
     console.log("We have read to line " + readToLine);
@@ -56,12 +84,12 @@ class TSVDistributor extends Distributor {
 
       if(jobsPendingCount < jobsToAdd) {
         while((line = this.readstream.next()) && (jobsAdded < jobsToAdd)) {
-          let rawData = line.toString().trim().split(this.separator);
+          let rawData = line.toString().trim().split(this.inputSeparator);
           console.log(rawData);
           let job = {};
           let metadata = {};
           for(let i = 0; i < this.fields.length; i++) {
-            if(this.metadataFields.has(this.fields[i])) {
+            if(this.metadataFieldsSet.has(this.fields[i])) {
               metadata[this.fields[i]] = rawData[i];
             }
             else {
@@ -87,19 +115,61 @@ class TSVDistributor extends Distributor {
     }
   }
 
-  writeJobs() {
-    //console.log("writing jobs");
+  async writeJobs(jobsToWrite) {
+    let jobsArr = [];
+
+    for(let i = 0; i < jobsToWrite.length; i++) {
+      let result = jobsToWrite[i].result;
+      let originalJob = jobsToWrite[i].originalJob;
+      let jobArr = [];
+      for(let j = 0; j < this.resultFields.length; j++) {
+        if(this.resultFields[j] in result) {
+          jobArr.push(result[this.resultFields[j]]);
+        }
+        else {
+          jobArr.push("");
+        }
+      }
+      for(let j = 0; j < this.fields.length; i++) {
+        if(this.metadataFieldsSet.has(this.fields[j])) {
+          if(this.writeMetadata) {
+            if(this.fields[j] in originalJob) {
+              jobArr.push(originalJob[this.fields[j]]);
+            }
+            else {
+              jobArr.push("");
+            }
+          }
+        }
+        else {
+          if(this.fields[j] in originalJob) {
+            jobArr.push(originalJob[this.fields[j]]);
+          }
+          else {
+            jobArr.push("");
+          }
+        }
+      }
+      jobsArr.push(jobArr.join(this.outputSeparator));
+    }
+    this.outfileWriteStream.write(jobsArr.join("\r\n"));
   }
 }
 
 let d = new TSVDistributor({
   retryCount: 0,
-  relayIps: ["http://172.31.74.199:8081"],
-  lambdaNames: ["hi"],
+  lambdaNames: ["TestFunc120"],
   jobsPerSecond: 3,
   namespace: "abctest",
-  inputFile: "dummydata.csv",
-  separator: ",",
-  metadataFields: []
+  relayNamespace: "whylord",
+  inputFile: "merged.tsv",
+  outfile: "results.tsv", 
+  inputSeparator: "\t",
+  outputSeparator: "\t",
+  metadataFields: ["gender", "age", "race", "language", "uses_twitter", "which_handle", "original_lacked_at", "original_had_space", "masked_id", "retrieval_status"],
+  resultFields: [],
+  writeOriginalJob: true,
+  writeMetadata: false,
+  relayPort: "8081"
 });
-d.addRelaySocket("http://172.31.74.199:8081");
+d.getRelays();
