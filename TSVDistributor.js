@@ -24,14 +24,17 @@ class TSVDistributor extends Distributor {
     this.resultFieldsSet = new Set(this.resultFields);
     this.writeOriginalJob = config.writeOriginalJob;
     
-    let writeHeader = fs.existsSync(config.outfile);
+    let writeHeader = !fs.existsSync(config.outfile);
+    console.log("Write header: " + writeHeader);
     this.outfileWriteStream = fs.createWriteStream(config.outfile, {flags: "a"});
     this.fields = this.readstream.next().toString().trim().split(this.inputSeparator);
     if(writeHeader) {
+      console.log("OKAY, GOOD");
       let headerArr = [];
       for(let i = 0; i < this.resultFields.length; i++) {
         headerArr.push(this.resultFields[i]);
       }
+      console.log("HEADER ARR: " + JSON.stringify(headerArr));
       if(this.writeOriginalJob) {
         for(let i = 0; i < this.fields.length; i++) {
           if(this.metadataFieldsSet.has(this.fields[i])) {
@@ -45,6 +48,8 @@ class TSVDistributor extends Distributor {
         }
       }
       this.outfileWriteStream.write(headerArr.join("\t")  + "\r\n");
+      console.log("WRITING THE HEADER");
+      console.log(headerArr);
     }
 
     let [readToLine, err] = await h.attempt(h.redisGet(this.client, this.namespace, `admin_readToLine`));
@@ -145,11 +150,13 @@ class TSVDistributor extends Distributor {
       }
       console.log("Neato");
       console.log(this.metadataFieldsSet);
+      console.log("So, here's the original job: ");
+      console.log(JSON.stringify(originalJob));
       for(let j = 0; j < this.fields.length; j++) {
         if(this.metadataFieldsSet.has(this.fields[j])) {
           if(this.writeMetadata) {
-            if(this.fields[j] in originalJob) {
-              jobArr.push(originalJob[this.fields[j]]);
+            if(this.fields[j] in originalJob.job) {
+              jobArr.push(originalJob.job[this.fields[j]]);
             }
             else {
               jobArr.push("");
@@ -157,14 +164,16 @@ class TSVDistributor extends Distributor {
           }
         }
         else {
-          if(this.fields[j] in originalJob) {
-            jobArr.push(originalJob[this.fields[j]]);
+          if(this.fields[j] in originalJob.job) {
+            jobArr.push(originalJob.job[this.fields[j]]);
           }
           else {
             jobArr.push("");
           }
         }
       }
+      console.log("THE LINE WE ARE WRITING");
+      console.log(jobArr.join(this.outputSeparator));
       jobsArr.push(jobArr.join(this.outputSeparator));
     }
     this.outfileWriteStream.write(jobsArr.join("\r\n"));
