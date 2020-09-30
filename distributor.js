@@ -300,7 +300,7 @@ class Distributor {
   }
 
   // job is the job itself, what you want sent to be processed
-  // metadata is any information you want to be associated with the job
+// metadata is any information you want to be associated with the job
   addJob(job, metadata, id) {
     let jobID = id /*|| this.randomString()*/ || md5(JSON.stringify(job));
     console.log("ADDING JOB " + JSON.stringify(job));

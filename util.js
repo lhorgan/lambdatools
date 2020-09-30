@@ -107,6 +107,19 @@ class Util {
     });
   }
 
+  static async redisLLen(client, namespace, key) {
+    return new Promise((accept, reject) => {
+      client.llen(`${namespace}_${key}`, (err, res) => {
+        if(err) {
+          reject(err);
+        }
+        else {
+          accept(res);
+        }
+      });
+    });
+  }
+
   static async redisLPop(client, namespace, key) {
     return new Promise((accept, reject) => {
       client.lpop(`${namespace}_${key}`, (err, res) => {

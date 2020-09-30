@@ -80,7 +80,7 @@ class TSVDistributor extends Distributor {
 
   async addJobsLoop() {
     let jobsInterval = setInterval(async () => {
-      let jobsPendingCount = Object.keys(this.jobsInFlight).length; // something
+      let jobsPendingCount = await this.getJobsCount();
       let jobsToAdd = 5 * this.jobsPerSecond;
       let jobsAdded = 0;
       let line = null;
