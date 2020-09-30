@@ -7,7 +7,6 @@ const fs = require("fs");
 class TSVDistributor extends Distributor {
   constructor(config) {
     super(config);
-
     this.configure(config);
   }
 
@@ -118,6 +117,12 @@ class TSVDistributor extends Distributor {
   }
 
   async writeJobs(jobsToWrite) {
+    if(!this.outfileWriteStream) {
+      // the write stream will be initialized before we start sending jobs, so we won't lose any jobs
+      console.log("Hold your horses!  Write stream not ready yet!");
+      return;
+    }
+
     console.log("well, we should be writing:");
     console.log(JSON.stringify(jobsToWrite));
     let jobsArr = [];

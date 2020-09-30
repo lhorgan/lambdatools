@@ -38,13 +38,17 @@ class Distributor {
   }
 
   async writeJobsLoop() {
-    while(true) { 
-      console.log("Time to write some jobs to file!")
+    while(true) {
+      console.log("Time to write some jobs to file!");
+      console.log(JSON.stringify(this.jobsToWrite));
+      console.log("IN FLIGHT")
+      console.log(this.jobsInFlight);
+      console.log("\n\n");
       let jobs = [];
       for(let i = 0; i < this.jobsToWrite.length; i++) {
         let id = this.jobsToWrite[i].id;
         let result = this.jobsToWrite[i].result;
-        console.log("PSSST RESULT");
+        console.log("PSSST RESULT FOR " + this.jobsToWrite[i].id);
         console.log(result);
         let originalJob = this.jobsInFlight[id];
         if(!originalJob) {
@@ -54,6 +58,7 @@ class Distributor {
         jobs.push({originalJob: originalJob, result: result, id: id});
       }
       console.log(jobs);
+      this.jobsToWrite = [];
 
       await this.writeJobs(jobs);
 
@@ -119,6 +124,7 @@ class Distributor {
         let jobsArray = [];
         for(let i = 0; i < this.jobsPerRelay; i++) {
           let nextJob = await this.getNextJob();
+          console.log("THE NEXT JOB WE POPPED: " + JSON.stringify(nextJob));
           if(nextJob === null) {
             break;
           }
@@ -145,6 +151,7 @@ class Distributor {
           console.log(workedJobs[i].status);
           if(workedJobs[i].status === "success") {
             console.log("Pushing to jobs to write...");
+            console.log(`Adding successul ${workedJobs[i].id} to write`);
             this.jobsToWrite.push(workedJobs[i]);
           }
           else if(workedJobs[i].status === "fail") {
@@ -159,10 +166,12 @@ class Distributor {
             if(failCount < this.retryCount) {
               h.redisSet(this.client, this.namespace, `${workedJobs[i].id}_failCount`, failCount + 1);
               await this.clearJobInFlight(originalJob.id);
+              console.log(`Adding failed ${workedJobs[i].id} to write`);
               this.addJob(originalJob.job, originalJob.metadata, originalJob.id); // we await clearing the job so we don't accidentally clear it again before it's been added
             }
             else {
               this.jobsToWrite.push(workedJobs[i]);
+              console.log(`Adding weird ${workedJobs[i].id} to write`);
             }
           }
         }
@@ -184,6 +193,7 @@ class Distributor {
 
   async clearJobInFlight(jobID) {
     delete this.jobsInFlight[jobID];
+    console.log("DELETING " + jobID);
     let [res1, err1] = await h.attempt(h.redisSetRem(this.client, this.namespace, "jobsInFlight", jobID));
     if(err1) {
       console.log("Woops, couldn't remove job " + jobID + " from the set.");
@@ -267,6 +277,8 @@ class Distributor {
     if(job) {
       this.setJobInFlight(job);
     }
+    console.log("POPPED A JOB LIKE");
+    console.log(JSON.stringify(job));
     return job;
   }
 
