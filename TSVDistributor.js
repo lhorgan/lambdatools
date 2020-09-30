@@ -22,6 +22,7 @@ class TSVDistributor extends Distributor {
     this.metadataFieldsSet = new Set(this.metadataFields);
     this.resultFields = config.resultFields;
     this.resultFieldsSet = new Set(this.resultFields);
+    this.writeOriginalJob = config.writeOriginalJob;
     
     let writeHeader = fs.existsSync(config.outfile);
     this.outfileWriteStream = fs.createWriteStream(config.outfile, {flags: "a"});
