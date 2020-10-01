@@ -132,7 +132,7 @@ class Util {
             res = JSON.parse(res);
           }
           catch {}
-          console.log("All good, accepting");
+          //console.log("All good, accepting");
           accept(res);
         }
       })

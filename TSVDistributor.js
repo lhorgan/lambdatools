@@ -13,7 +13,7 @@ class TSVDistributor extends Distributor {
   async configure(config) {
     await this.loadBackedUpJobs();
     
-    console.log("configuring");
+    //console.log("configuring");
     this.readstream = new lineByLine(config.inputFile);
     this.inputSeparator = config.inputSeparator || "\t";
     this.outputSeparator = config.outputSeparator || "\t";
@@ -25,16 +25,16 @@ class TSVDistributor extends Distributor {
     this.writeOriginalJob = config.writeOriginalJob;
     
     let writeHeader = !fs.existsSync(config.outfile);
-    console.log("Write header: " + writeHeader);
+    //console.log("Write header: " + writeHeader);
     this.outfileWriteStream = fs.createWriteStream(config.outfile, {flags: "a"});
     this.fields = this.readstream.next().toString().trim().split(this.inputSeparator);
     if(writeHeader) {
-      console.log("OKAY, GOOD");
+      //console.log("OKAY, GOOD");
       let headerArr = [];
       for(let i = 0; i < this.resultFields.length; i++) {
         headerArr.push(this.resultFields[i]);
       }
-      console.log("HEADER ARR: " + JSON.stringify(headerArr));
+      //console.log("HEADER ARR: " + JSON.stringify(headerArr));
       if(this.writeOriginalJob) {
         for(let i = 0; i < this.fields.length; i++) {
           if(this.metadataFieldsSet.has(this.fields[i])) {
@@ -48,13 +48,13 @@ class TSVDistributor extends Distributor {
         }
       }
       this.outfileWriteStream.write(headerArr.join("\t")  + "\r\n");
-      console.log("WRITING THE HEADER");
-      console.log(headerArr);
+      //console.log("WRITING THE HEADER");
+      //console.log(headerArr);
     }
 
     let [readToLine, err] = await h.attempt(h.redisGet(this.client, this.namespace, `admin_readToLine`));
 
-    console.log("We have read to line " + readToLine);
+    //console.log("We have read to line " + readToLine);
 
     if(err) {
       readToLine = 0;
@@ -79,13 +79,14 @@ class TSVDistributor extends Distributor {
   }
 
   async addJobsLoop() {
-    let jobsInterval = setInterval(async () => {
+    let endJobsLoop = false;
+    while(!endJobsLoop) {
       let jobsPendingCount = await this.getJobsCount();
-      let jobsToAdd = 5 * this.jobsPerSecond;
+      let jobsToAdd = 10;//5 * this.jobsPerSecond;
       let jobsAdded = 0;
       let line = null;
 
-      console.log("ADDING JOBS");
+      //console.log("ADDING JOBS");
       console.log("PENDING, ADDING:" + jobsPendingCount + ", " + jobsToAdd);
 
       if(jobsPendingCount < jobsToAdd) {
@@ -108,50 +109,51 @@ class TSVDistributor extends Distributor {
         }
         if(!line) {
           this.readAllLines = true;
-          clearInterval(jobsInterval);
+          endJobsLoop = true;
+          console.log("all lines read...");
         }
-
         h.redisSet(this.client, this.namespace, `admin_readToLine`, this.linesRead); // once all jobs for the second have been posted, so as not to slam the database
       }
-    }, 1000);
+      await this.sleep(1000);
+    }
   }
 
   onNextJob(job) {
     if(this.readAllLines && job === null) {
-      console.log("no jobs left!");
+      //console.log("no jobs left!");
     }
   }
 
   async writeJobs(jobsToWrite) {
     if(!this.outfileWriteStream) {
       // the write stream will be initialized before we start sending jobs, so we won't lose any jobs
-      console.log("Hold your horses!  Write stream not ready yet!");
+      //console.log("Hold your horses!  Write stream not ready yet!");
       return;
     }
 
-    console.log("well, we should be writing:");
-    console.log(JSON.stringify(jobsToWrite));
+    //console.log("well, we should be writing:");
+    //console.log(JSON.stringify(jobsToWrite));
     let jobsArr = [];
 
     for(let i = 0; i < jobsToWrite.length; i++) {
-      console.log("JOB WE ARE ABOUT TO WRITE");
-      console.log(jobsToWrite[i]);
+      //console.log("JOB WE ARE ABOUT TO WRITE");
+      //console.log(jobsToWrite[i]);
       let result = jobsToWrite[i].result;
       let originalJob = jobsToWrite[i].originalJob;
       let jobArr = [];
       for(let j = 0; j < this.resultFields.length; j++) {
         if(result && this.resultFields[j] in result) {
-          console.log("Adding " + this.resultFields[j] + " to the list...");
+          //console.log("Adding " + this.resultFields[j] + " to the list...");
           jobArr.push(result[this.resultFields[j]]);
         }
         else {
           jobArr.push("");
         }
       }
-      console.log("Neato");
-      console.log(this.metadataFieldsSet);
-      console.log("So, here's the original job: ");
-      console.log(JSON.stringify(originalJob));
+      //console.log("Neato");
+      //console.log(this.metadataFieldsSet);
+      //console.log("So, here's the original job: ");
+      //console.log(JSON.stringify(originalJob));
       for(let j = 0; j < this.fields.length; j++) {
         if(this.metadataFieldsSet.has(this.fields[j])) {
           if(this.writeMetadata) {
@@ -172,8 +174,8 @@ class TSVDistributor extends Distributor {
           }
         }
       }
-      console.log("THE LINE WE ARE WRITING");
-      console.log(jobArr.join(this.outputSeparator));
+      //console.log("THE LINE WE ARE WRITING");
+      //console.log(jobArr.join(this.outputSeparator));
       jobsArr.push(jobArr.join(this.outputSeparator));
     }
     this.outfileWriteStream.write(jobsArr.join("\r\n"));
@@ -181,12 +183,12 @@ class TSVDistributor extends Distributor {
 }
 
 let d = new TSVDistributor({
-  retryCount: 0,
+  retryCount: 3,
   lambdaNames: [{name: "TestFunc120", region: "us-east-1"}],
   jobsPerSecond: 1,
   namespace: "abctest",
   relayNamespace: "whylord",
-  inputFile: "merged.tsv",
+  inputFile: "small.tsv",
   outfile: "results.tsv", 
   inputSeparator: "\t",
   outputSeparator: "\t",
