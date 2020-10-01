@@ -63,10 +63,15 @@ class Distributor {
       await this.writeJobs(jobs);
 
       for(let i = 0; i < this.jobsToWrite.length; i++) {
-        this.clearJobInFlight(this.jobsToWrite[i].id);
+        await this.clearJobInFlight(this.jobsToWrite[i].id);
+        await this.completeJob(this.jobsToWrite[i].id);
       }
       await this.sleep(1000);
     }
+  }
+
+  async completeJob(jobID) {
+    await this.redisSetRem(this.client, this.namespace, "allIncompleteJobIDs", jobID);
   }
 
   async loadBackedUpJobs() {
@@ -99,7 +104,7 @@ class Distributor {
       //console.log("Here is the backed up job");
       //console.log(backedUpJob);
       backedUpJob = JSON.parse(backedUpJob);
-      this.addJob(backedUpJob.job, backedUpJob.metadata, backedUpJob.id);
+      await this.addJob(backedUpJob.job, backedUpJob.metadata, backedUpJob.id);
     } while(backedUpJobID !== null);
   }
 
@@ -169,8 +174,8 @@ class Distributor {
             if(failCount < this.retryCount) {
               await h.redisSet(this.client, this.namespace, `${workedJobs[i].id}_failCount`, failCount + 1);
               await this.clearJobInFlight(originalJob.id);
-              //console.log(`Adding failed ${workedJobs[i].id} to write`);
-              //this.addJob(originalJob.job, originalJob.metadata, originalJob.id); // we await clearing the job so we don't accidentally clear it again before it's been added
+              console.log(`Adding failed ${workedJobs[i].id} to write`);
+              await this.addJob(originalJob.job, originalJob.metadata, originalJob.id); // we await clearing the job so we don't accidentally clear it again before it's been added
             }
             else {
               this.jobsToWrite.push(workedJobs[i]);
@@ -304,10 +309,19 @@ class Distributor {
 
   // job is the job itself, what you want sent to be processed
 // metadata is any information you want to be associated with the job
-  addJob(job, metadata, id) {
+  async addJob(job, metadata, id) {
     let jobID = id /*|| this.randomString()*/ || md5(JSON.stringify(job));
+    let jobIsDuplicate = await h.redisSetIsMember(this.client, this.namespace, "allIncompleteJobIDs", jobID);
+    if(!id && jobIsDuplicate) { // reading in a fresh job only, hence id check
+      console.log("Job " + jobID + " already exists!");
+      return;
+    }
+
     //console.log(JSON.stringify(jobID));
     console.log("Adding job with id " + jobID);
+
+    await h.redisSetAdd(this.client, this.namespace, "allIncompleteJobIDs", jobID);
+    // FIRST, MAKE SURE THIS JOB ISN'T A DUPLICATE (which could happen a bunch of ways that aren't my fault!)
     //console.log("ADDING JOB " + JSON.stringify(job));
     h.redisLPush(this.client, this.namespace, "jobs", {"job": job, "metadata": metadata, "id": jobID});
     return jobID;

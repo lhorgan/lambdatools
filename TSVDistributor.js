@@ -103,7 +103,7 @@ class TSVDistributor extends Distributor {
               job[this.fields[i]] = rawData[i];
             }
           }
-          this.addJob(job, metadata);
+          await this.addJob(job, metadata);
           jobsAdded++;
           this.linesRead++; // another line has been read
         }

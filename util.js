@@ -36,6 +36,19 @@ class Util {
     });
   }
 
+  static async redisSetIsMember(client, namespace, key, value) {
+    return new Promise((accept, reject) => {
+      client.sismember(`${namespace}_${key}`, value, (err, res) => {
+        if(err) {
+          reject(err);
+        }
+        else {
+          accept(res);
+        }
+      });
+    });
+  }
+
   static async redisSetPop(client, namespace, key) {
     return new Promise((accept, reject) => {
       client.spop(`${namespace}_${key}`, (err, res) => {
