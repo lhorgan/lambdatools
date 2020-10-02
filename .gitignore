@@ -1,0 +1,7 @@
+node_modules/*
+.vscode/*
+dummydata.csv
+install_nvm.sh
+log.txt
+test.sh
+teszip/*
