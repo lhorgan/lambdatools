@@ -23,9 +23,22 @@ class Util {
     });
   }
 
-  static async redisSetRem(client, namespace, key) {
+  static async redisSetRem(client, namespace, key, value) {
     return new Promise((accept, reject) => {
-      client.srem(`${namespace}_${key}`, (err, res) => {
+      client.srem(`${namespace}_${key}`, value, (err, res) => {
+        if(err) {
+          reject(err);
+        }
+        else {
+          accept(res);
+        }
+      });
+    });
+  }
+
+  static async redisSetIsMember(client, namespace, key, value) {
+    return new Promise((accept, reject) => {
+      client.sismember(`${namespace}_${key}`, value, (err, res) => {
         if(err) {
           reject(err);
         }
@@ -107,6 +120,19 @@ class Util {
     });
   }
 
+  static async redisLLen(client, namespace, key) {
+    return new Promise((accept, reject) => {
+      client.llen(`${namespace}_${key}`, (err, res) => {
+        if(err) {
+          reject(err);
+        }
+        else {
+          accept(res);
+        }
+      });
+    });
+  }
+
   static async redisLPop(client, namespace, key) {
     return new Promise((accept, reject) => {
       client.lpop(`${namespace}_${key}`, (err, res) => {
@@ -119,7 +145,7 @@ class Util {
             res = JSON.parse(res);
           }
           catch {}
-          console.log("All good, accepting");
+          //console.log("All good, accepting");
           accept(res);
         }
       })

@@ -4,7 +4,7 @@ const md5 = require("md5");
 //const passport = require('passport');
 
 const h = require('./util.js')._Util; // h for helpers
-const ec2 = require("./ec2_launcher").EC2Launcher;
+const EC2 = require("./ec2_launcher").EC2;
 
 class Distributor {
   constructor(config) {
@@ -13,17 +13,20 @@ class Distributor {
     this.onFail = config.onFail;
     this.jobToRow = config.jobToRow;
     this.relayNames = config.relayNames;
+    this.relayPort = config.relayPort;
     this.lambdaNames = config.lambdaNames;
     this.jobsPerSecond = config.jobsPerSecond;
     this.namespace = config.namespace;
+    this.relayNamespace = config.relayNamespace;
     this.client = redis.createClient();
     this.jobsPerRelay = 50; // jobs per relay per request
+    this.ec2Util = new EC2();
 
     this.relaySockets = {};
     this.jobsInFlight = {};
 
     this.io = require('socket.io-client');
-    console.log("setting up this.io");
+    //console.log("setting up this.io");
 
     this.client.on("error", function (err) {
       console.error("Error " + err);
@@ -31,13 +34,48 @@ class Distributor {
 
     this.jobsToWrite = [];
 
-    let writeInterval = setInterval(() => {
-      this.writeJobs();
-    }, 1000);
+    this.writeJobsLoop();
+  }
+
+  async writeJobsLoop() {
+    while(true) {
+      //console.log("Time to write some jobs to file!");
+      //console.log(JSON.stringify(this.jobsToWrite));
+      //console.log("IN FLIGHT")
+      //console.log(this.jobsInFlight);
+      //console.log("\n\n");
+      let jobs = [];
+      for(let i = 0; i < this.jobsToWrite.length; i++) {
+        let id = this.jobsToWrite[i].id;
+        let result = this.jobsToWrite[i].result;
+        //console.log("PSSST RESULT FOR " + this.jobsToWrite[i].id);
+        //console.log(result);
+        let originalJob = this.jobsInFlight[id];
+        if(!originalJob) {
+          //console.log("It's possible that this job is from a previous run....");
+          continue;
+        }
+        jobs.push({originalJob: originalJob, result: result, id: id});
+      }
+      //console.log(jobs);
+      this.jobsToWrite = [];
+
+      await this.writeJobs(jobs);
+
+      for(let i = 0; i < this.jobsToWrite.length; i++) {
+        await this.clearJobInFlight(this.jobsToWrite[i].id);
+        await this.completeJob(this.jobsToWrite[i].id);
+      }
+      await this.sleep(1000);
+    }
+  }
+
+  async completeJob(jobID) {
+    await this.redisSetRem(this.client, this.namespace, "allIncompleteJobIDs", jobID);
   }
 
   async loadBackedUpJobs() {
-    console.log("Loading backed up jobs...");
+    //console.log("Loading backed up jobs...");
 
     //await h.redisSetAdd(this.client, this.namespace, "jobsInFlight", job.id);
 
@@ -52,39 +90,46 @@ class Distributor {
       else if(backedUpJobID === null) {
         break;
       }
+      //console.log("Loading backed up job with id " + backedUpJobID);
 
       let [backedUpJob, buErr] = await h.attempt(h.redisGet(this.client, this.namespace, backedUpJobID));
       if(buErr) {
         console.error(err);
         continue;
       }
-      else if(backedUpJob === null) {
+      else if(!backedUpJob) {
         console.error(`No such job ${backedUpJobID}`);
         continue;
       }
-      this.addJob(backedUpJob.job, backedUpJob.metadata, backedUpJob.id);
+      //console.log("Here is the backed up job");
+      //console.log(backedUpJob);
+      backedUpJob = JSON.parse(backedUpJob);
+      await this.addJob(backedUpJob.job, backedUpJob.metadata, backedUpJob.id);
     } while(backedUpJobID !== null);
   }
 
   async addRelaySocket(relayURL) {
-    console.log(`opening a connection to ${relayURL}...`);
+    //this.sendLambdas(relayURL);
+
+    //console.log(`opening a connection to ${relayURL}...`);
     let socket = this.io(`${relayURL}/coordinator`);
     socket.on('connect', function(){
-      console.log("WE ARE CONNECTED!");
+      //console.log("WE ARE CONNECTED!");
     });
     this.relaySockets[relayURL] = socket;
     let sendingWork = false;
 
     socket.on("message", async (message) => {
-      console.log("message received");
-      console.log(message);
+      //console.log("message received");
+      //console.log(message);
       if(message.type === "moreWork" && !sendingWork) {
-        console.log("we need to send more work to relay " + relayURL);
+        //console.log("we need to send more work to relay " + relayURL);
         sendingWork = true;
         // send any jobs that are available, up to 50 per relay
         let jobsArray = [];
         for(let i = 0; i < this.jobsPerRelay; i++) {
           let nextJob = await this.getNextJob();
+          //console.log("THE NEXT JOB WE POPPED: " + JSON.stringify(nextJob));
           if(nextJob === null) {
             break;
           }
@@ -97,41 +142,51 @@ class Distributor {
                           //"metadata": nextJob.metadata,
                           "id": nextJob.id});
         }
-        console.log("THE JOBS WE ARE SENDING");
-        console.log(JSON.stringify(jobsArray));
+        //console.log("THE JOBS WE ARE SENDING");
+        //console.log(JSON.stringify(jobsArray));
         this.sendJobs(relayURL, jobsArray);
         sendingWork = false;
       }
       else if(message.type === "jobsComplete") {
-        console.log(message);
+        //console.log("JOBS COMPLETE!");
+        //console.log(message);
         let workedJobs = message.jobsArray;
         for(let i = 0; i < workedJobs.length; i++) {
-          if(workedJobs[i].status === "successs") {
+          console.log(workedJobs[i]);
+          //console.log(workedJobs[i].status);
+          if(workedJobs[i].status === "success") {
+            //console.log("Pushing to jobs to write...");
+            //console.log(`Adding successul ${workedJobs[i].id} to write`);
             this.jobsToWrite.push(workedJobs[i]);
           }
           else if(workedJobs[i].status === "fail") {
+            //console.log(workedJobs[i].id + " has failed, sadly.");
             let originalJob = this.jobsInFlight[workedJobs[i].id];
             
-            let [failCount, err] = await h.redisGet(this.client, this.namespace, workedJobs[i].id);
+            let [failCount, err] = await h.attempt(h.redisGet(this.client, this.namespace, `${workedJobs[i].id}_failCount`));
             if(err) {
               failCount = 0;
             }
             failCount = parseInt(failCount) || 0;
+            console.log(`Fail count for failed job ${workedJobs[i].id} is now at ${failCount}`);
+            console.log(`Original Job\n${JSON.stringify(originalJob)}\n`);
             
             if(failCount < this.retryCount) {
-              h.redisSet(this.client, this.namespace, `${workedJobs[i].id}_failCount`, failCount + 1);
-              await this.clearJobInFlight();
-              this.addJob(originalJob.job, originalJob.metadata, originalJob.id); // we await clearing the job so we don't accidentally clear it again before it's been added
+              await h.redisSet(this.client, this.namespace, `${workedJobs[i].id}_failCount`, failCount + 1);
+              await this.clearJobInFlight(originalJob.id);
+              console.log(`Adding failed ${workedJobs[i].id} to write`);
+              await this.addJob(originalJob.job, originalJob.metadata, originalJob.id); // we await clearing the job so we don't accidentally clear it again before it's been added
             }
             else {
               this.jobsToWrite.push(workedJobs[i]);
+              //console.log(`Adding weird ${workedJobs[i].id} to write`);
             }
           }
         }
       }
     });
     socket.on("disconnect", () => { // this will only happen if we take a relay offline
-      console.log("we disconnected... woops");
+      //console.log("we disconnected... woops");
       socket.disconnect(true);
       delete this.relaySockets[relayURL];
     });
@@ -144,10 +199,19 @@ class Distributor {
     await h.redisSet(this.client, this.namespace, job.id, job);
   }
 
-  async clearJobInFlight(job) {
-    this.jobsInFlight[job.id] = undefined;
-    await h.redisSetRem(this.client, this.namespace, "jobsInFlight", job.id);
-    await h.redisDel(this.client, this.namespace, job.id);
+  async clearJobInFlight(jobID) {
+    delete this.jobsInFlight[jobID];
+    //console.log("DELETING " + jobID);
+    let [res1, err1] = await h.attempt(h.redisSetRem(this.client, this.namespace, "jobsInFlight", jobID));
+    if(err1) {
+      //console.log("Woops, couldn't remove job " + jobID + " from the set.");
+      console.error(err1);
+    }
+    let [res2, err2] = await h.attempt(h.redisDel(this.client, this.namespace, jobID));
+    if(err2) {
+      //console.log("Woops, couldn't remove job " + jobID + " from the database.");
+      console.error(err2);
+    }
   }
 
   sendJobs(relayURL, jobsToSend) {
@@ -156,23 +220,38 @@ class Distributor {
 
     fetch(relayURL + "/jobs", {
       method: "post",
-      body: JSON.stringify(jobsToSend),
+      body: JSON.stringify(body),
       headers: { 'Content-Type': 'application/json' }
     })
     .then(this.handleErrors)
     .then(response => response.json())
     .then(data => {
-        console.log("jobs sent");
+        //console.log("jobs sent");
     })
     .catch(async (err) => {
-        console.log(err);
-        console.log(`Something seems to have gone wrong sending the jobs to relay node ${relayURL}...`);
+        //console.log(err);
+        //console.log(`Something seems to have gone wrong sending the jobs to relay node ${relayURL}...`);
         for(let i = 0; i < jobs.length; i++) {
           let originalJob = this.jobsInFlight[jobs[i].id];
           await this.clearJobInFlight(originalJob.id);
           this.addJob(originalJob.job, originalJob.metadata, originalJob.id);
         }
     });
+  }
+
+  sendLambdas(relayURL) {
+    //console.log("LAMBDA NAMES!");
+    //console.log(this.lambdaNames);
+    fetch(relayURL + "/lambdas", {
+      method: "post",
+      body: JSON.stringify({"lambdas": this.lambdaNames})
+    })
+    .then(data => {
+      //console.log("Lambas sent");
+    })
+    .catch(err => {
+      console.error(err);
+    })
   }
   
   async sleep(millis) {
@@ -191,12 +270,12 @@ class Distributor {
   }
 
   processCompletedJobs(data) {
-    console.log("todo... not yet implemented");
+    //console.log("todo... not yet implemented");
   }
 
   async getNextJob() {
     let [job, err] = await h.attempt(h.redisLPop(this.client, this.namespace, "jobs"));
-    console.log(job);
+    //console.log(job);
     
     if(err) {
       console.error(err);
@@ -204,8 +283,10 @@ class Distributor {
     }
 
     if(job) {
-      this.setJobInFlight(job);
+      await this.setJobInFlight(job);
     }
+    //console.log("POPPED A JOB LIKE");
+    //console.log(JSON.stringify(job));
     return job;
   }
 
@@ -227,20 +308,61 @@ class Distributor {
   }
 
   // job is the job itself, what you want sent to be processed
-  // metadata is any information you want to be associated with the job
-  addJob(job, metadata, id) {
+// metadata is any information you want to be associated with the job
+  async addJob(job, metadata, id) {
     let jobID = id /*|| this.randomString()*/ || md5(JSON.stringify(job));
-    console.log("ADDING JOB " + JSON.stringify(job));
+    let jobIsDuplicate = await h.redisSetIsMember(this.client, this.namespace, "allIncompleteJobIDs", jobID);
+    if(!id && jobIsDuplicate) { // reading in a fresh job only, hence id check
+      console.log("Job " + jobID + " already exists!");
+      return;
+    }
+
+    //console.log(JSON.stringify(jobID));
+    console.log("Adding job with id " + jobID);
+
+    await h.redisSetAdd(this.client, this.namespace, "allIncompleteJobIDs", jobID);
+    // FIRST, MAKE SURE THIS JOB ISN'T A DUPLICATE (which could happen a bunch of ways that aren't my fault!)
+    //console.log("ADDING JOB " + JSON.stringify(job));
     h.redisLPush(this.client, this.namespace, "jobs", {"job": job, "metadata": metadata, "id": jobID});
     return jobID;
   }
 
-  start() {
-    this.mainLoop();
+  async getRelays() {
+    let [instances, err] = await h.attempt(this.ec2Util.describeInstances([
+      {
+        Name: `tag:Name`,
+        Values: [`${this.relayNamespace}-relay*`]
+      },
+      {
+        Name: 'instance-state-name',
+        Values: ["running"]
+      },
+    ]));
+
+    if(err) {
+      console.error("Could not load relays.  Aborting.");
+      return;
+    }
+
+    for(let i = 0; i < instances.Reservations.length; i++) {
+      for(let j = 0; j < instances.Reservations[i].Instances.length; j++) {
+        let instance = instances.Reservations[i].Instances[j];
+        //console.log(`Type: ${instance.InstanceType}`);
+        //console.log(`Private IP: ${instance.PrivateIpAddress}`);
+        //console.log(`Public URL: ${instance.PublicDnsName || 'None'}`);
+        //console.log("\n");
+
+        this.addRelaySocket(`http://${instance.PrivateIpAddress}:${this.relayPort}`);
+      }
+    }
   }
 
   stop() {
-    console.log("Not yet... sorry");
+    //console.log("Not yet... sorry");
+  }
+
+  async writeJobs(jobs) {
+    // pass
   }
 }
 

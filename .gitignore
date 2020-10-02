@@ -1,2 +1,9 @@
 node_modules/*
+dummydata.csv
 package-lock.json
+.vscode/*
+dummydata.csv
+install_nvm.sh
+log.txt
+test.sh
+teszip/*

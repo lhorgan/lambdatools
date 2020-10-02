@@ -1,10 +1,11 @@
 const AWS = require('aws-sdk');
 
-const { exec } = require("child_process");
+const { exec, execSync } = require("child_process");
 const { stderr } = require("process");
 const util = require('util');
 const fs = require('fs');
 const h = require('./util.js')._Util; // h for helpers
+const path = require("path");
 
 // clever pattern from https://dev.to/sobiodarlington/better-error-handling-with-async-await-2e5m
 const handle = (promise) => {
@@ -29,11 +30,13 @@ class LambdaLauncher {
     // let res = await this.listFunctions("hi", "eu-west-1");
     // console.log(res);
 
-    let [, zipErr] = await handle(this.zipDirectory("./testzip", "testzip.zip"));
+    let outzip = "/home/luke/Documents/lazer/lds/testzip.zip";
+    let [, zipErr] = await handle(this.zipDirectory("/home/luke/Documents/lambdathingie", outzip));
     if(zipErr) {
       console.error(zipErr);
       return;
     }
+    console.log("Success... moving to upload");
 
     /*let [bucketCreateRes, bucketCreateErr] = await h.attempt(this.createBucket({
       Bucket: "lambda-bucket-917"
@@ -46,20 +49,52 @@ class LambdaLauncher {
       console.log(bucketCreateRes);
     }*/
 
-    /*let bucketParams = {
+    let bucketParams = {
       Bucket: "lambda-bucket-917",
       Key: "functionCode"
     }
-    let [uploadResult, uploadErr] = await h.attempt(this.uploadFile("./testzip.zip", bucketParams, "us-east-1"));
+    let [uploadResult, uploadErr] = await h.handle(this.uploadFile(outzip, bucketParams, "us-east-1"));
     if(uploadErr) {
       console.error(uploadErr);
       return;
     }
     else {
       console.log(uploadResult);
-    }*/
-
+    }
     
+    let config = {
+      Code: { /* required */
+        S3Bucket: 'lambda-bucket-917',
+        S3Key: 'functionCode',
+      },
+      FunctionName: 'TestFunc120', /* required */
+      Handler: 'index.handler', /* required */
+      Role: 'arn:aws:iam::252108313661:role/LambdaNinja', /* required */
+      Runtime: "nodejs12.x",
+      Description: 'A description',
+      MemorySize: '256',
+      Publish: true,
+      Tags: {
+        'Name': "GRKFUNCTION"
+      },
+      Timeout: 120,
+      VpcConfig: {
+        SecurityGroupIds: [
+          'sg-001e53a36d06474db',
+        ],
+        SubnetIds: [
+          'subnet-16e1034e',
+          'subnet-d40a64b1',
+          'subnet-92d8c4b9',
+          'subnet-26448c50',
+          'subnet-bf58dc82',
+          'subnet-1761eb1b'
+        ]
+      }
+    };
+
+    //await this.launch("lambda-bucket-917", "functionCode", config, "us-east-1");
+    await this.updateCode("lambda-bucket-917", "functionCode", "TestFunc120", "us-east-1")
   }
 
   createBucket(bucketParams, region) {
@@ -78,10 +113,11 @@ class LambdaLauncher {
     });
   }
 
-  uploadFile(path, bucketParams, region) {
+  uploadFile(zipPath, bucketParams, region) {
     return new Promise((resolve, reject) => {
       //var fileData = Buffer.from(path, "binary");
-      var fileStream = fs.createReadStream(path);
+      console.log("reading in " + zipPath);
+      var fileStream = fs.createReadStream(zipPath);
       fileStream.on('error', function(err) {
         console.error('File Error', err);
       });
@@ -120,11 +156,11 @@ class LambdaLauncher {
       lambda.createFunction(params, (err, data) => {
           if(err) {
             console.log(err);
-            console.log("Failed to launch " + name);
+            console.log("Failed to launch.");
             reject(err);
           }
           else {
-            console.log("Launched " + name);
+            console.log("Launched");
             accept(data);
           }
       });
@@ -142,7 +178,7 @@ class LambdaLauncher {
         FunctionName: functionName
       };
 
-      lambda.updateCode(params, (err, data) => {
+      lambda.updateFunctionCode(params, (err, data) => {
           if(err) {
             console.log(err);
             console.log("Failed to update " + functionName);
@@ -254,12 +290,18 @@ class LambdaLauncher {
   }
 
   async zipDirectory(input_path, output) {
+    //let realPath = execSync(`realpath ${output}`);
+
+    console.log("Zipping to " + output);
+
     return new Promise((resolve, reject) => {
-      exec(`zip -r ${output} ${input_path}`, (error, stdout, stderr) => {
+      exec(`cd ${input_path}; zip -r ${output} .`, (error, stdout, stderr) => {
         if(error) {
           reject(error);
         }
         else {
+          console.log("Zipped successfully!");
+          console.log(stdout);
           resolve();
         }
       });
