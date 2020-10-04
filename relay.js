@@ -28,9 +28,33 @@ class Relay {
 
     this.lambdaInfos = {};
 
-    this.maxDepth = 50; // max number of lambdas per function name
+    this.maxDepth = 1; // max number of lambdas per function name
 
     this.completedJobs = [];
+    this.scale();
+  }
+
+  async scale() {
+    while(true) {
+      for(let key in this.lambdaInfos) {
+        console.log()
+        let functionName = this.lambdaInfos[key].name;
+        console.log(functionName);
+        if(functionName in this.lambdaSockets && this.lambdaSockets[functionName].size < this.maxDepth) {
+          console.log("scaling from.... " + this.lambdaSockets[functionName].size);
+          this.invokeLambda(this.lambdaInfos[key]);
+        }
+      }
+      await this.sleep(1000);
+    }
+  }
+
+  async sleep(millis) {
+    return new Promise((accept, reject) => {
+      setTimeout(() => {
+        accept();
+      }, millis);
+    });
   }
 
   listenHTTP() {
@@ -143,10 +167,13 @@ class Relay {
   }
 
   addLambdaSocket(functionName, socket) {
+    console.log("Adding socket " + functionName);
     if(!(functionName in this.lambdaSockets)) {
       this.lambdaSockets[functionName] = new Set();
     }
-    if(this.lambdaSockets[functionName].length < this.maxDepth) {
+    console.log("LENGHT: " + this.lambdaSockets[functionName].size);
+    if(this.lambdaSockets[functionName].size < this.maxDepth) {
+      console.log("We have added a socket!");
       this.lambdaSockets[functionName].add(socket.id);
     }
     else {
