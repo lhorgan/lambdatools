@@ -1,12 +1,13 @@
 class Updater {
-  constructor(relayPort) {
+  constructor(port, coordPort) {
     let express = require("express");
 
     this.io = require('socket.io-client');
-    this.server = require('http').createServer(this.app);
     this.app = express();
+    this.server = require('http').createServer(this.app);
 
-    this.relayPort = relayPort;
+    this.port = port;
+    this.coordPort = coordPort;
 
     this.listenHTTP();
 
@@ -21,11 +22,13 @@ class Updater {
   listenHTTP() {
     // Listen on the port specified in console args
     this.server.listen(this.port, ()  => {
-      console.log("App listening on port " + this.relayPort);
+      console.log("App is listening on port " + this.port);
     });
     
-    this.app.post("/relay", (req, res) => {
-      this.coordAddress = req.body;
+    this.app.get("/relayMan", (req, res) => {
+      //this.coordAddress = req.body;
+      console.log("Coordinator connected!");
+      res.send({"status": 200});
     });
   }
   
@@ -45,4 +48,4 @@ class Updater {
   }
 }
 
-let updater = new Updater("5031");
+let updater = new Updater("8000", "5101");
