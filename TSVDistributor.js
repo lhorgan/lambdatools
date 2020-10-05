@@ -90,7 +90,9 @@ class TSVDistributor extends Distributor {
       console.log("PENDING, ADDING:" + jobsPendingCount + ", " + jobsToAdd);
 
       if(jobsPendingCount < jobsToAdd) {
-        while((line = this.readstream.next()) && (jobsAdded < jobsToAdd)) {
+        while((jobsAdded < jobsToAdd) && (line = this.readstream.next())) { 
+          // the && used to be in the other order, but that meant a line got skipped 
+          // if the first condition (ie this.readstream.next() was true but the second ws false)
           let rawData = line.toString().trim().split(this.inputSeparator);
           console.log(rawData);
           let job = {};
@@ -125,7 +127,7 @@ class TSVDistributor extends Distributor {
   }
 
   async writeJobs(jobsToWrite) {
-    if(!this.outfileWriteStream) {
+    if(!this.outfileWriteStream || jobsToWrite.length < 1) {
       // the write stream will be initialized before we start sending jobs, so we won't lose any jobs
       //console.log("Hold your horses!  Write stream not ready yet!");
       return;
@@ -176,9 +178,10 @@ class TSVDistributor extends Distributor {
       }
       //console.log("THE LINE WE ARE WRITING");
       //console.log(jobArr.join(this.outputSeparator));
+      jobArr.push(originalJob.id);
       jobsArr.push(jobArr.join(this.outputSeparator));
     }
-    this.outfileWriteStream.write(jobsArr.join("\r\n"));
+    this.outfileWriteStream.write(jobsArr.join("\r\n") + "\r\n");
   }
 }
 

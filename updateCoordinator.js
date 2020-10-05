@@ -1,5 +1,9 @@
 const fs = require("fs");
 const express = require("express");
+const h = require('./util.js')._Util; // h for helpers
+const EC2 = require("./ec2_launcher").EC2;
+const fetch = require('node-fetch');
+const execSync = require('child_process').execSync;
 
 class Updater {
   constructor(config) {
@@ -18,6 +22,9 @@ class Updater {
     this.relayIO = this.io.of("/relay");
 
     this.port = config.port;
+    this.scriptFileName = "../grk.sh";
+
+    this.ec2Util = new EC2();
     
     this.server.listen(this.port, ()  => {
       console.log(`App listening on port ${this.port}`);
@@ -28,13 +35,28 @@ class Updater {
 
   listenSocket() {
     this.relayIO.on("connect", (socket) => {
-      console.log("Coordinator connected");
-      if(this.coordinatorSocket) {
-        console.log("Appears the coordinator reconnected...");
-        this.coordinatorSocket.disconnect();
-      }
-      this.coordinatorSocket = socket;
+      socket.join("relayRoom");
+      socket.on("disconnect", () => {
+        console.log("Socket disconnecting from room.");
+        socket.leave("relayRoom");
+      });
+
+      let script = fs.readFileSync(this.scriptFileName);
+      socket.send({type: "update", script: script});
+
+      socket.on("message", (message) => {
+        console.log("HERE IS THE MESSAGE");
+        console.log(message);
+      });
     });
+
+    this.go();
+  }
+
+  async go() {
+    let relayURLs = await this.getRelayURLs();
+    console.log(relayURLs);
+    this.connectToRelays(relayURLs);
   }
 
   async getRelayURLs() {
@@ -66,35 +88,38 @@ class Updater {
     return relayURLs;
   }
 
-  connectToRelays() {
-    /*let relayURLs = this.getRelayURLs();
+  connectToRelays(relayURLs) {
+    let myIP = execSync("ec2metadata --local-ipv4").toString().trim();
+    let body = {"coordURL": `http://${myIP}:${this.port}`};
+    //console.log("THE BODY");
+    //console.log(JSON.stringify(body));
 
-    for(let i = 0; i < instances.Reservations.length; i++) {
-      for(let j = 0; j < instances.Reservations[i].Instances.length; j++) {
-        let instance = instances.Reservations[i].Instances[j];
-        this.addRelaySocket(`http://${instance.PrivateIpAddress}:${this.relayPort}`);
-      }
-    }*/
+    for(let i = 0; i < relayURLs.length; i++) {
+      console.log("Attempting to connect to " + relayURLs[i]);
+      fetch(relayURLs[i] + "/relay", {
+        method: "post",
+        body: JSON.stringify(body),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      })
+      .then(data => {
+        console.log("Connected");
+        //console.log(data);
+      })
+      .catch(err => {
+        console.error(err);
+      })
+    }
   }
 
   addRelaySocket(socket) {
     
   }
-
-  /*listenSocket() {
-    this.relayNamespace.on("connect", (socket) => {
-      console.log("Someone joined!");
-      let address = socket.handshake.address;
-      socket.join("relayRoom");
-      socket.on("message", (message) => {
-        console.log(message);
-      });
-    });
-  }*/
 }
 
 let updater = new Updater({
   relayNamespace: "whylord",
-  relayPort: "4101",
+  relayPort: "8000",
   port: "5101"
 });

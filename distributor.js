@@ -109,6 +109,8 @@ class Distributor {
   }
 
   async addRelaySocket(relayURL) {
+    let completedJobs = [];
+
     //this.sendLambdas(relayURL);
 
     //console.log(`opening a connection to ${relayURL}...`);
@@ -152,12 +154,14 @@ class Distributor {
         //console.log(message);
         let workedJobs = message.jobsArray;
         for(let i = 0; i < workedJobs.length; i++) {
-          console.log(workedJobs[i]);
+          //console.log("WORKED JOB: " + JSON.stringify(workedJobs[i]));
           //console.log(workedJobs[i].status);
           if(workedJobs[i].status === "success") {
             //console.log("Pushing to jobs to write...");
             //console.log(`Adding successul ${workedJobs[i].id} to write`);
             this.jobsToWrite.push(workedJobs[i]);
+            completedJobs++;
+            //console.log(completedJobs);
           }
           else if(workedJobs[i].status === "fail") {
             //console.log(workedJobs[i].id + " has failed, sadly.");
@@ -169,15 +173,17 @@ class Distributor {
             }
             failCount = parseInt(failCount) || 0;
             console.log(`Fail count for failed job ${workedJobs[i].id} is now at ${failCount}`);
-            console.log(`Original Job\n${JSON.stringify(originalJob)}\n`);
+            //console.log(`Original Job\n${JSON.stringify(originalJob)}\n`);
             
             if(failCount < this.retryCount) {
               await h.redisSet(this.client, this.namespace, `${workedJobs[i].id}_failCount`, failCount + 1);
               await this.clearJobInFlight(originalJob.id);
-              console.log(`Adding failed ${workedJobs[i].id} to write`);
+              //console.log(`Adding failed ${workedJobs[i].id} to write`);
               await this.addJob(originalJob.job, originalJob.metadata, originalJob.id); // we await clearing the job so we don't accidentally clear it again before it's been added
             }
             else {
+              completedJobs++;
+              console.log("NOW AT " + completedJobs + " completed jobs!");
               this.jobsToWrite.push(workedJobs[i]);
               //console.log(`Adding weird ${workedJobs[i].id} to write`);
             }
@@ -318,12 +324,12 @@ class Distributor {
     }
 
     //console.log(JSON.stringify(jobID));
-    console.log("Adding job with id " + jobID);
+    //console.log("Adding job with id " + jobID);
 
     await h.redisSetAdd(this.client, this.namespace, "allIncompleteJobIDs", jobID);
     // FIRST, MAKE SURE THIS JOB ISN'T A DUPLICATE (which could happen a bunch of ways that aren't my fault!)
-    //console.log("ADDING JOB " + JSON.stringify(job));
-    h.redisLPush(this.client, this.namespace, "jobs", {"job": job, "metadata": metadata, "id": jobID});
+    //console.log("\nADDING JOB " + jobID + " " + JSON.stringify(job) + "\n");
+    await h.redisLPush(this.client, this.namespace, "jobs", {"job": job, "metadata": metadata, "id": jobID});
     return jobID;
   }
 
