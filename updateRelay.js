@@ -45,16 +45,16 @@ class Updater {
   
   executeScript(script) {
     let scriptFileName = `./update_script_${Date.now()}`;
-    console.log("SCRIPT: " + script);
+    //console.log("SCRIPT: " + script);
 
     fs.writeFileSync(scriptFileName, script);
     let scriptProc = exec(`sh ${scriptFileName}`);
     scriptProc.stdout.on("data", (data)=>{
-      console.log(data);
+      //console.log(data);
       this.socket.send({type: "data", data: data});
     });
     scriptProc.stderr.on("data", (data)=>{
-      console.error({type: "error", error: data});
+      //console.error({type: "error", error: data});
       this.socket.send({type: "data", data: data});
     });
     scriptProc.stderr.on("end", (data) => {
