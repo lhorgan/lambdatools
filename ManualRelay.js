@@ -2,13 +2,20 @@ const AWS = require('aws-sdk');
 
 const Relay = require('./relay.js').Relay;
 
+/**
+ * Function Name: ExpanderOctober1
+ * Bucket name: expanderoct
+ * Bucket key: functionCode
+ * Timeout: 300
+ */
+
 class ManualRelay extends Relay {
   constructor() {
     super("8081");
 
-    this.relayURLs = ["http://172.31.74.199:8081"];
-    this.lambdaInfos = {"TestFunc120": {"name": "TestFunc120", "region": "us-east-1"}};
-    this.invokeLambdas([this.lambdaInfos["TestFunc120"]]);
+    this.relayURLs = ["http://54.208.5.41:8081"];
+    this.lambdaInfos = {"ExpanderOctober1": {"name": "ExpanderOctober1", "region": "us-east-1"}};
+    this.invokeLambdas([this.lambdaInfos["ExpanderOctober1"]]);
   }
 
   invokeLambda(lambdaInfo) {

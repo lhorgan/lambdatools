@@ -7,3 +7,4 @@ install_nvm.sh
 log.txt
 test.sh
 teszip/*
+update_script_*

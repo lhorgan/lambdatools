@@ -28,15 +28,39 @@ class Relay {
 
     this.lambdaInfos = {};
 
-    this.maxDepth = 50; // max number of lambdas per function name
+    this.maxDepth = 5; // max number of lambdas per function name
 
     this.completedJobs = [];
+    this.scale();
+  }
+
+  async scale() {
+    while(true) {
+      for(let key in this.lambdaInfos) {
+        //console.log()
+        let functionName = this.lambdaInfos[key].name;
+        console.log(functionName);
+        if(functionName in this.lambdaSockets && this.lambdaSockets[functionName].size < this.maxDepth) {
+          //console.log("scaling from.... " + this.lambdaSockets[functionName].size);
+          this.invokeLambda(this.lambdaInfos[key]);
+        }
+      }
+      await this.sleep(1000);
+    }
+  }
+
+  async sleep(millis) {
+    return new Promise((accept, reject) => {
+      setTimeout(() => {
+        accept();
+      }, millis);
+    });
   }
 
   listenHTTP() {
     // Listen on the port specified in console args
     this.server.listen(this.relayPort, ()  => {
-      console.log("App listening on port " + this.relayPort);
+      //console.log("App listening on port " + this.relayPort);
     });
 
     /**
@@ -45,17 +69,17 @@ class Relay {
      * sends 200
      */
     this.app.post("/jobs", (req, res) => {
-      console.log("jobs received");
-      console.log(req.body);
+      //console.log("jobs received");
+      //console.log(req.body);
       let jobs = req.body.jobs;
       this.relayURLs = req.body.relayURLs;
-      console.log("RELAY URLS:");
-      console.log(this.relayURLs);
+      //console.log("RELAY URLS:");
+      //console.log(this.relayURLs);
 
       for(let i = 0; i < jobs.length; i++) { // add all the jobs to the queue
         this.queue.push(jobs[i]);
       }
-      console.log("QUEUE LENGTH NOW " + this.queue.length);
+      //console.log("QUEUE LENGTH NOW " + this.queue.length);
 
       res.send({"status": 200});
     });
@@ -65,8 +89,8 @@ class Relay {
      * expects a list of {name: "LambdaName", region: "LambdaRegion"}
      */
     this.app.post("/lambdas", (req, res) => {
-      console.log("Lambdas recieved!");
-      console.log(req.body);
+      //console.log("Lambdas recieved!");
+      //console.log(req.body);
       let lambdaArray = req.body;
       this.invokeLambdas(lambdaArray);
 
@@ -78,9 +102,9 @@ class Relay {
 
   listenSocket() {
     this.coordinatorNamespace.on("connect", (socket) => {
-      console.log("Coordinator connected");
+      //console.log("Coordinator connected");
       if(this.coordinatorSocket) {
-        console.log("Appears the coordinator reconnected...");
+        //console.log("Appears the coordinator reconnected...");
         this.coordinatorSocket.disconnect();
       }
       this.coordinatorSocket = socket;
@@ -95,7 +119,7 @@ class Relay {
 
     this.lambdaNamespace.on("connect", (socket) => {
       if(socket.handshake.query.name) {
-        console.log("socket " + socket.id + " connected");
+        console.log("socket " + socket.id + " connected with ip " + socket.handshake.address);
         let functionName = socket.handshake.query.name;
 
         this.addLambdaSocket(functionName, socket);
@@ -106,19 +130,20 @@ class Relay {
         });
   
         socket.on("message", (message) => {
-          console.log("received a message on socket " + socket.id);
-          console.log(message);
+          //console.log("received a message on socket " + socket.id);
+          //console.log(message);
           if(message.type === "moreWork") {
-            console.log(`We need to send more work to ${socket.id} of ${functionName} fame.`);
+            //console.log(`We need to send more work to ${socket.id} of ${functionName} fame.`);
             let job = this.queue.pop();
-            console.log("POPPED JOB " + JSON.stringify(job));
+            //console.log("POPPED JOB " + JSON.stringify(job));
             if(job) {
               console.log("sending a job to " + socket.id);
+              console.log(job);
               socket.send({type: "job", job}); 
             }
             if(this.queue.length < 25 && !this.pendingWorkRequest) {
               if(!this.coordinatorSocket) {
-                console.log("coordinator not yet connected....");
+                //console.log("coordinator not yet connected....");
                 return;
               }
               this.coordinatorSocket.send({type: "moreWork"});
@@ -129,8 +154,8 @@ class Relay {
             }
           }
           else if(message.type === "jobComplete") {
-            console.log("JOB COMPLETED!");
-            console.log(JSON.stringify(message));
+            //console.log("JOB COMPLETED!");
+            //console.log(JSON.stringify(message));
             this.completedJobs.push(message);
           }
         });
@@ -143,10 +168,13 @@ class Relay {
   }
 
   addLambdaSocket(functionName, socket) {
+    //console.log("Adding socket " + functionName);
     if(!(functionName in this.lambdaSockets)) {
       this.lambdaSockets[functionName] = new Set();
     }
-    if(this.lambdaSockets[functionName].length < this.maxDepth) {
+    //console.log("LENGHT: " + this.lambdaSockets[functionName].size);
+    if(this.lambdaSockets[functionName].size < this.maxDepth) {
+      //console.log("We have added a socket!");
       this.lambdaSockets[functionName].add(socket.id);
     }
     else {
@@ -161,21 +189,21 @@ class Relay {
   }
 
   invokeLambdas(lambdaInfos) {
-    console.log("Invoking lambdas...");
-    console.log(lambdaInfos);
+    //console.log("Invoking lambdas...");
+    //console.log(lambdaInfos);
     for(let i = 0; i < lambdaInfos.length; i++) {
-      console.log("INVOKING LAMBDA " + i);
+      //console.log("INVOKING LAMBDA " + i);
       this.invokeLambda(lambdaInfos[i]);
     }
   }
 
   invokeLambda(lambdaInfo) {
-    console.log("cripes");
+    //console.log("cripes");
     return;
   }
 }
 
 exports.Relay = Relay;
 
-// console.log(process.argv[2]);
+// //console.log(process.argv[2]);
 // let e = new Relay(process.argv[2]);
