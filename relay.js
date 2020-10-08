@@ -28,7 +28,7 @@ class Relay {
 
     this.lambdaInfos = {};
 
-    this.maxDepth = 20; // max number of lambdas per function name
+    this.maxDepth = 5; // max number of lambdas per function name
 
     this.completedJobs = [];
     this.scale();
@@ -137,7 +137,8 @@ class Relay {
             let job = this.queue.pop();
             //console.log("POPPED JOB " + JSON.stringify(job));
             if(job) {
-              //console.log("sending a job to " + socket.id);
+              console.log("sending a job to " + socket.id);
+              console.log(job);
               socket.send({type: "job", job}); 
             }
             if(this.queue.length < 25 && !this.pendingWorkRequest) {
