@@ -1,0 +1,30 @@
+{
+  "name": "lambdatools",
+  "version": "1.0.0",
+  "description": "All sorts of of Lambda tools",
+  "main": "distributor.js",
+  "dependencies": {
+    "aws-sdk": "^2.762.0",
+    "express": "^4.17.1",
+    "md5": "^2.3.0",
+    "n-readlines": "^1.0.0",
+    "node-fetch": "^2.6.1",
+    "redis": "^3.0.2",
+    "socket.io-client": "^2.3.0",
+    "socket.io": "^2.3.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lhorgan/lambdatools.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lhorgan/lambdatools/issues"
+  },
+  "homepage": "https://github.com/lhorgan/lambdatools#readme"
+}

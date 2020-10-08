@@ -8,3 +8,4 @@ log.txt
 test.sh
 teszip/*
 update_script_*
+*.tsv
