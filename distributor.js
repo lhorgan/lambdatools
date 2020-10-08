@@ -357,7 +357,7 @@ class Distributor {
   }
 
   randomChoice(arr) {
-    return arr[Math.random() * arr.length];
+    return arr[Math.floor(Math.random() * arr.length)];
   }
 
   // job is the job itself, what you want sent to be processed

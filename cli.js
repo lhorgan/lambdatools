@@ -230,11 +230,35 @@ class CLI {
     if(action.updateType === "parameters") {
       let memory = await inquirer.prompt(this.lambda.memory);
       let lifetime = await inquirer.prompt(this.lambda.lifetime);
+      // todo, actually do this
     }
     else if(action.updateType === "code") {
       let codePath = await inquirer.prompt(this.lambda.path);
       let bucketName = await inquirer.prompt(this.lambda.bucketName);
       let bucketKey = await inquirer.prompt(this.lambda.bucketKey);
+
+      let launcher = new LambdaLauncher();
+
+      let outzip = "/home/luke/Documents/lazer/lds/testzip.zip";
+      let [,zipErr] = await h.attempt(launcher.zipDirectory(codePath.path, outzip));
+      if(zipErr) {
+        console.error(zipErr);
+        return;
+      }
+
+      let bucketParams = {
+        Bucket: bucketName.name,
+        Key: bucketKey.key
+      }
+      let [uploadResult, uploadErr] = await h.attempt(launcher.uploadFile(outzip, bucketParams, "us-east-1"));
+      if(uploadErr) {
+        console.error(uploadErr);
+        return;
+      }
+      else {
+        console.log(uploadResult);
+      }
+      await launcher.updateCode(bucketName.name, bucketKey.key, name.name, "us-east-1");
     }
   }
 

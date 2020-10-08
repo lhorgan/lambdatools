@@ -11,3 +11,5 @@ update_script_*
 *.tsv
 *.pem
 *.zip
+*.zip
+*.pem
