@@ -57,6 +57,10 @@ class Updater {
       console.error({type: "error", error: data});
       this.socket.send({type: "data", data: data});
     });
+    scriptProc.stderr.on("end", (data) => {
+      this.socket.send({type: "end"});
+      this.socket.close();
+    });
   }
 }
 
