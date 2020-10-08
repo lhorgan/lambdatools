@@ -10,14 +10,6 @@ class Updater {
     this.server = require('http').createServer(this.app);
     const bodyParser = require("body-parser");
 
-<<<<<<< HEAD
-    this.port = port;
-    this.coordURL = null;
-
-    this.app.use(bodyParser.json());
-    this.app.use(bodyParser.urlencoded({ extended: false }));
-    this.listenHTTP();
-=======
     this.listenHTTP();
   }
 
@@ -28,7 +20,6 @@ class Updater {
         this.executeScript(message.script);
       }
     });
->>>>>>> cli
   }
 
   listenHTTP() {
@@ -37,27 +28,8 @@ class Updater {
       console.log("App is listening on port " + this.port);
     });
     
-<<<<<<< HEAD
-    this.app.post("/relay", (req, res) => {
-      console.log("Coordinator connected!!!");
-      console.log(req.body.coordURL);
-      this.coordURL = req.body.coordURL;
-      this.listenSocket();
-      res.send({"status": 200});
-    });
-  }
-
-  listenSocket() {
-    console.log("Initiating socket connection to " + this.coordURL);
-    this.socket = this.io(`${this.coordURL}/relay`, {query: {}});
-    this.socket.on("message", (message) => {
-      if(message.type === "update") {
-        this.executeScript(message.script);
-      }
-=======
     this.app.post("/coordinator", (req, res) => {
       this.coordURL = req.body;
->>>>>>> cli
     });
   }
   
