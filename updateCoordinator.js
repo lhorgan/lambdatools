@@ -22,10 +22,13 @@ class Updater {
     this.relayIO = this.io.of("/relay");
 
     this.port = config.port;
-    this.scriptFileName = "../grk.sh";
+    this.scriptFileName = "./ec2_dist_config.sh";
 
     this.ec2Util = new EC2();
-    
+
+    this.setup();
+    this.relaysCompleteCount = 0;
+
     this.server.listen(this.port, ()  => {
       console.log(`App listening on port ${this.port}`);
     });
@@ -33,20 +36,42 @@ class Updater {
     this.listenSocket();
   }
 
+  setup() {
+    let d = new Date();
+    this.outputDir = `./${d.getDay()}_${d.getMonth()}_${d.getFullYear()}_${d.getHours()}_${d.getMinutes()}_${d.getSeconds()}`;
+    this.script = fs.readFileSync(this.scriptFileName);
+
+    if(!fs.existsSync(this.outputDir)){
+      fs.mkdirSync(this.outputDir);
+    }
+  }
+
   listenSocket() {
     this.relayIO.on("connect", (socket) => {
       socket.join("relayRoom");
+
       socket.on("disconnect", () => {
         console.log("Socket disconnecting from room.");
         socket.leave("relayRoom");
       });
 
-      let script = fs.readFileSync(this.scriptFileName);
-      socket.send({type: "update", script: script});
+      socket.send({type: "update", script: this.script});
+      let socketFilename = this.outputDir + "/" + socket.id + ".log";
 
       socket.on("message", (message) => {
         console.log("HERE IS THE MESSAGE");
         console.log(message);
+        if(message.type === "data" || message.type === "error") {
+          fs.appendFile(socketFilename, `${message.type}: ${message.data}`, () => {});
+        }
+        else if(message.type === "end") {
+          this.relaysCompleteCount++;
+          console.log("Relay finished...");
+          if(this.relaysCompleteCount >= this.relayURLs.length) {
+            console.log("Closing the server....")
+            this.server.close();
+          }
+        }
       });
     });
 
@@ -54,9 +79,9 @@ class Updater {
   }
 
   async go() {
-    let relayURLs = await this.getRelayURLs();
-    console.log(relayURLs);
-    this.connectToRelays(relayURLs);
+    this.relayURLs = await this.getRelayURLs();
+    console.log(this.relayURLs);
+    this.connectToRelays(this.relayURLs);
   }
 
   async getRelayURLs() {
@@ -111,10 +136,6 @@ class Updater {
         console.error(err);
       })
     }
-  }
-
-  addRelaySocket(socket) {
-    
   }
 }
 
