@@ -3,6 +3,13 @@ inquirer.registerPrompt('suggest', require('inquirer-prompt-suggest'));
 const EC2 = require("./ec2_launcher").EC2;
 const fs = require("fs");
 const h = require('./util.js')._Util; // h for helpers
+const LambdaLauncher = require("./LambdaLauncher").LambdaLauncher;
+
+const handle = (promise) => {
+  return promise
+    .then(data => ([data, null]))
+    .catch(error => Promise.resolve([null, error]));
+}
 
 class CLIUpdater {
   constructor() {
@@ -86,7 +93,53 @@ class CLI {
     }
 
     this.lambda = {
-      
+      actions: {
+        type: "suggest",
+        name: "action",
+        message: "Lambda:",
+        suggestions: ["create", "update", "update"]
+      },
+      memory: {
+        type: "number",
+        name: "memory",
+        message: "RAM (GB):"
+      },
+      lifetime: {
+        type: "number",
+        name: "lifetime",
+        message: "Timeout (seconds):"
+      },
+      name: {
+        type: "input",
+        name: "name",
+        message: "Function name:"
+      },
+      description: {
+        type: "input",
+        name: "description",
+        message: "Function description:"
+      },
+      bucketName: {
+        type: "input",
+        name: "name",
+        message: "S3 Bucket name:"
+      },
+      bucketKey: {
+        type: "input",
+        name: "key",
+        message: "S3 Key name:"
+      },
+      path: {
+        type: "input",
+        name: "path",
+        message: "Code path (absolute):"
+      },
+      updateType: {
+        type: "suggest",
+        name: "updateType",
+        message: "Update type:",
+        suggestions: ["code", "parameters"]
+      }
     }
   }
 
@@ -97,6 +150,91 @@ class CLI {
         await this.ec2Menu();
         await this.mainMenu();
         break;
+      case("lambda"):
+        await this.lambdaMenu();
+        await this.mainMenu();
+        break;
+    }
+  }
+
+  async lambdaMenu() {
+    let action = await inquirer.prompt(this.lambda.actions);
+    switch(action.action) {
+      case("update"):
+        await this.lambdaUpdateMenu();
+        break;
+      case("create"):
+        await this.lambdaCreateMenu();
+        break;
+    }
+  }
+
+  async lambdaCreateMenu() {
+    console.log("Lambda Create Menu:");
+    let name = await inquirer.prompt(this.lambda.name);
+    let description = await inquirer.prompt(this.lambda.description);
+    let codePath = await inquirer.prompt(this.lambda.path);
+    console.log(codePath);
+    let bucketName = await inquirer.prompt(this.lambda.bucketName);
+    let bucketKey = await inquirer.prompt(this.lambda.bucketKey);
+    let memory = await inquirer.prompt(this.lambda.memory);
+    let lifetime = await inquirer.prompt(this.lambda.lifetime);
+
+    let launcher = new LambdaLauncher();
+
+    let outzip = "/home/luke/Documents/lazer/lds/testzip.zip";
+    let [,zipErr] = await h.attempt(launcher.zipDirectory(codePath.path, outzip));
+    if(zipErr) {
+      console.error(zipErr);
+      return;
+    }
+
+    let bucketParams = {
+      Bucket: bucketName.name,
+      Key: bucketKey.key
+    }
+    let [uploadResult, uploadErr] = await h.attempt(launcher.uploadFile(outzip, bucketParams, "us-east-1"));
+    if(uploadErr) {
+      console.error(uploadErr);
+      return;
+    }
+    else {
+      console.log(uploadResult);
+    }
+
+    let config = {
+      FunctionName: name.name, /* required */
+      Handler: 'index.handler', /* required */
+      Role: 'arn:aws:iam::252108313661:role/LambdaNinja', /* required */
+      Runtime: "nodejs12.x",
+      Description: description.description,
+      MemorySize: memory.memory,
+      Publish: true,
+      Tags: {},
+      Timeout: lifetime.lifetime,
+      VpcConfig: {
+        SecurityGroupIds: [],
+        SubnetIds: []
+      }
+    };
+
+    console.log(config);
+
+    await launcher.launch(bucketName.name, bucketKey.key, config, "us-east-1");
+  }
+
+  async lambdaUpdateMenu() {
+    console.log("Lambda Update Menu:");
+    let name = await inquirer.prompt(this.lambda.name);
+    let action = await inquirer.prompt(this.lambda.updateType);
+    if(action.updateType === "parameters") {
+      let memory = await inquirer.prompt(this.lambda.memory);
+      let lifetime = await inquirer.prompt(this.lambda.lifetime);
+    }
+    else if(action.updateType === "code") {
+      let codePath = await inquirer.prompt(this.lambda.path);
+      let bucketName = await inquirer.prompt(this.lambda.bucketName);
+      let bucketKey = await inquirer.prompt(this.lambda.bucketKey);
     }
   }
 
@@ -264,4 +402,4 @@ class CLI {
 }
 
 let cli = new CLI();
-cli.ec2CreateMenu();
+cli.lambdaMenu();
