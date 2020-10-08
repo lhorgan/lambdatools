@@ -3,8 +3,10 @@ class Updater {
     this.io = require('socket.io-client');
 
     this.listenHTTP();
+  }
 
-    this.socket = this.io(`${coordURL}/relay`, {query: {}});
+  listenSocket() {
+    this.socket = this.io(`${this.coordURL}/relay`, {query: {}});
     socket.on("message", (message) => {
       if(message.type === "update") {
         this.executeScript(message.script);
@@ -19,7 +21,7 @@ class Updater {
     });
     
     this.app.post("/coordinator", (req, res) => {
-      this.coordAddress = req.body;
+      this.coordURL = req.body;
     });
   }
   

@@ -6,4 +6,6 @@ dummydata.csv
 install_nvm.sh
 log.txt
 test.sh
-teszip/*
+testzip/*
+*.zip
+*.pem
