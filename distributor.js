@@ -23,7 +23,7 @@ class Distributor {
     this.ec2Util = new EC2();
 
     this.jobStartTimes = [];
-    this.jobTimeout = 30000;
+    this.jobTimeout = 30000; // todo, make this adjustable
 
     this.relaySockets = {};
     this.jobsInFlight = {};
