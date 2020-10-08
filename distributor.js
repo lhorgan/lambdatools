@@ -22,6 +22,9 @@ class Distributor {
     this.jobsPerRelay = 50; // jobs per relay per request
     this.ec2Util = new EC2();
 
+    this.jobStartTimes = [];
+    this.jobTimeout = 30000;
+
     this.relaySockets = {};
     this.jobsInFlight = {};
 
@@ -35,6 +38,49 @@ class Distributor {
     this.jobsToWrite = [];
 
     this.writeJobsLoop();
+    this.expireJobsLoop();
+  }
+
+  async expireJobsLoop() {
+    while(true) {
+      let currTime = Date.now();
+
+      let i = 0;
+      console.log("\n\n");
+      console.log(this.jobsInFlight);
+      console.log(this.jobStartTimes);
+      console.log("\n\n");
+
+      let allJobsExpired = true;
+      while(i < this.jobStartTimes.length) {
+        let jobID = this.jobStartTimes[i].id;
+        let startTime = this.jobStartTimes[i].time;
+        console.log("CURR TIME START TIME: " + (currTime - startTime));
+        if(currTime - startTime < this.jobTimeout) {
+          this.jobStartTimes = this.jobStartTimes.slice(i);
+          allJobsExpired = false;
+          break;
+        }
+        else {
+          console.log(jobID + " must be complete");
+          if(jobID in this.jobsInFlight) { // this job has expired and is probably lost
+            console.error(jobID + " has been gone too long.  Timed out.  Probably lost.");
+            let originalJob = this.jobsInFlight[jobID];
+            await this.clearJobInFlight(jobID);
+            await this.addJob(originalJob.job, originalJob.metadata, originalJob.id);
+          }
+        }
+
+        i++
+      }
+
+      if(allJobsExpired) {
+        console.log("All jobs have expired.")
+        this.jobStartTimes = [];
+      }
+
+      await this.sleep(10000);
+    }
   }
 
   async writeJobsLoop() {
@@ -154,7 +200,7 @@ class Distributor {
         //console.log(message);
         let workedJobs = message.jobsArray;
         for(let i = 0; i < workedJobs.length; i++) {
-          //console.log("WORKED JOB: " + JSON.stringify(workedJobs[i]));
+          console.log("WORKED JOB: " + JSON.stringify(workedJobs[i]));
           //console.log(workedJobs[i].status);
           if(workedJobs[i].status === "success") {
             //console.log("Pushing to jobs to write...");
@@ -203,6 +249,7 @@ class Distributor {
     this.jobsInFlight[job.id] = job;
     await h.redisSetAdd(this.client, this.namespace, "jobsInFlight", job.id);
     await h.redisSet(this.client, this.namespace, job.id, job);
+    this.jobStartTimes.push({time: Date.now(), id: job.id});
   }
 
   async clearJobInFlight(jobID) {
@@ -358,7 +405,8 @@ class Distributor {
         //console.log(`Public URL: ${instance.PublicDnsName || 'None'}`);
         //console.log("\n");
 
-        this.addRelaySocket(`http://${instance.PrivateIpAddress}:${this.relayPort}`);
+        //this.addRelaySocket(`http://${instance.PrivateIpAddress}:${this.relayPort}`);
+        this.addRelaySocket(`http://${instance.PublicDnsName}:${this.relayPort}`);
       }
     }
   }
