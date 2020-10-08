@@ -23,11 +23,16 @@ class TSVDistributor extends Distributor {
     this.resultFields = config.resultFields;
     this.resultFieldsSet = new Set(this.resultFields);
     this.writeOriginalJob = config.writeOriginalJob;
+    this.writeMetadata = config.writeMetadata;
     
     let writeHeader = !fs.existsSync(config.outfile);
     //console.log("Write header: " + writeHeader);
     this.outfileWriteStream = fs.createWriteStream(config.outfile, {flags: "a"});
     this.fields = this.readstream.next().toString().trim().split(this.inputSeparator);
+
+    console.log("OUR FIELDS");
+    console.log(this.fields);
+
     if(writeHeader) {
       //console.log("OKAY, GOOD");
       let headerArr = [];
@@ -48,8 +53,8 @@ class TSVDistributor extends Distributor {
         }
       }
       this.outfileWriteStream.write(headerArr.join("\t")  + "\r\n");
-      //console.log("WRITING THE HEADER");
-      //console.log(headerArr);
+      console.log("WRITING THE HEADER");
+      console.log(headerArr);
     }
 
     let [readToLine, err] = await h.attempt(h.redisGet(this.client, this.namespace, `admin_readToLine`));
@@ -154,13 +159,15 @@ class TSVDistributor extends Distributor {
       }
       //console.log("Neato");
       //console.log(this.metadataFieldsSet);
-      //console.log("So, here's the original job: ");
-      //console.log(JSON.stringify(originalJob));
+      console.log("So, here's the original job: ");
+      //console.log(this.metadataFieldsSet);
+      console.log(JSON.stringify(originalJob));
       for(let j = 0; j < this.fields.length; j++) {
+        //console.log(this.fields[j]);
         if(this.metadataFieldsSet.has(this.fields[j])) {
           if(this.writeMetadata) {
-            if(this.fields[j] in originalJob.job) {
-              jobArr.push(originalJob.job[this.fields[j]]);
+            if(this.fields[j] in originalJob.metadata) {
+              jobArr.push(originalJob.metadata[this.fields[j]]);
             }
             else {
               jobArr.push("");
@@ -185,20 +192,37 @@ class TSVDistributor extends Distributor {
   }
 }
 
+// let d = new TSVDistributor({
+//   retryCount: 3,
+//   lambdaNames: [{name: "TestFunc120", region: "us-east-1"}],
+//   jobsPerSecond: 1,
+//   namespace: "abctest",
+//   relayNamespace: "whylord",
+//   inputFile: "small.tsv",
+//   outfile: "results.tsv", 
+//   inputSeparator: "\t",
+//   outputSeparator: "\t",
+//   metadataFields: ["gender", "age", "race", "language", "uses_twitter", "which_handle", "original_lacked_at", "original_had_space", "masked_id", "retrieval_status"],
+//   resultFields: ["dummy"],
+//   writeOriginalJob: true,
+//   writeMetadata: false,
+//   relayPort: "8081"
+// });
+
 let d = new TSVDistributor({
   retryCount: 3,
-  lambdaNames: [{name: "TestFunc120", region: "us-east-1"}],
+  lambdaNames: [{name: "ExpanderOctober1", region: "us-east-1"}],
   jobsPerSecond: 1,
   namespace: "abctest",
   relayNamespace: "whylord",
-  inputFile: "small.tsv",
-  outfile: "results.tsv", 
+  inputFile: "urls.tsv",
+  outfile: "results2020.tsv", 
   inputSeparator: "\t",
   outputSeparator: "\t",
-  metadataFields: ["gender", "age", "race", "language", "uses_twitter", "which_handle", "original_lacked_at", "original_had_space", "masked_id", "retrieval_status"],
-  resultFields: ["dummy"],
+  metadataFields: ["id", "date", "id2", "id3", "name", "state", "id4", "voter", "id5", "gender", "ethnicity", "party"],
+  resultFields: ["expandedURL"],
   writeOriginalJob: true,
-  writeMetadata: false,
+  writeMetadata: true,
   relayPort: "8081"
 });
 d.getRelays();
