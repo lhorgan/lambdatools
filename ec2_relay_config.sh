@@ -1,14 +1,14 @@
 #!/bin/bash
-sudo apt update -y;
-sudo apt install git -y;
+apt update -y;
+apt install git -y;
 cd /home/admin;
-sudo git clone https://github.com/lhorgan/lambdatools.git /home/admin/lambdatools;
+su admin -c  'git clone https://github.com/lhorgan/lambdatools.git /home/admin/lambdatools;';
 curl -sL https://deb.nodesource.com/setup_12.x | sudo bash -;
-sudo apt install nodejs -y;
+apt install nodejs -y;
 cd lambdatools;
-npm install;
+su admin -c  'npm install;';
 cd ..;
-sudo npm install pm2@latest -g;
+npm install pm2@latest -g;
 su admin -c 'pm2 start /home/admin/lambdatools/ManualRelay.js;';
 su admin -c 'pm2 start /home/admin/lambdatools/updateRelay.js;';
 su admin -c 'pm2 save;';
