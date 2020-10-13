@@ -213,7 +213,7 @@ class Relay {
   removeLambdaSocket(functionName, socket) {
     socket.removeAllListeners();
     this.lambdaSockets[functionName].delete(socket.id);
-    this.invokeLambda(this.lambdaInfos[functionName]);
+    //this.invokeLambda(this.lambdaInfos[functionName]);
   }
 
   invokeLambdas(lambdaInfos) {
