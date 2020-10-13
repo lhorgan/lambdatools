@@ -41,16 +41,17 @@ class Relay {
         //console.log()
         let functionName = this.lambdaInfos[key].name;
         //console.log(functionName);
-        console.log("\n\n");
-        console.log("Function Name: " + functionName);
-        console.log(this.lambdaSockets);
-        //console.log(this.lambdaSockets[functionName].size);
-        console.log(this.maxDepth);
-        console.log("\n\n");
 
         if(!(functionName in this.lambdaSockets)) {
           this.lambdaSockets[functionName] = new Set();
         }
+
+        console.log("\n\n");
+        console.log("Function Name: " + functionName);
+        console.log(this.lambdaSockets);
+        console.log(this.lambdaSockets[functionName].size);
+        console.log(this.maxDepth);
+        console.log("\n\n");
 
         if(this.lambdaSockets[functionName].size < this.maxDepth) {
           console.log("scaling from.... " + this.lambdaSockets[functionName].size);
