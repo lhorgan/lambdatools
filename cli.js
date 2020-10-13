@@ -426,4 +426,4 @@ class CLI {
 }
 
 let cli = new CLI();
-cli.lambdaMenu();
+cli.mainMenu();
