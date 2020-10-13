@@ -29,13 +29,14 @@ class Relay {
 
     this.lambdaInfos = {};
 
-    this.maxDepth = 100; // max number of lambdas per function name
+    this.maxDepth = 10; // max number of lambdas per function name
 
     this.completedJobs = [];
     this.scale();
   }
 
   async scale() {
+    let personallyLaunchedCount = 0;
     while(true) {
       for(let key in this.lambdaInfos) {
         //console.log()
@@ -54,7 +55,8 @@ class Relay {
         console.log("\n\n");
 
         if(this.lambdaSockets[functionName].size < this.maxDepth) {
-          console.log("scaling from.... " + this.lambdaSockets[functionName].size);
+          console.log("scaling from.... " + this.lambdaSockets[functionName].size + ": " + personallyLaunchedCount);
+          personallyLaunchedCount++;
           this.invokeLambda(this.lambdaInfos[key]);
         }
       }
