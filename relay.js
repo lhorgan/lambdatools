@@ -201,13 +201,13 @@ class Relay {
       this.lambdaSockets[functionName] = new Set();
     }
     //console.log("LENGHT: " + this.lambdaSockets[functionName].size);
-    if(this.lambdaSockets[functionName].size < this.maxDepth) {
+    //if(this.lambdaSockets[functionName].size < this.maxDepth) {
       //console.log("We have added a socket!");
       this.lambdaSockets[functionName].add(socket.id);
-    }
-    else {
+    //}
+    //else {
       // we want this function to end itself
-    }
+    //}
   }
 
   removeLambdaSocket(functionName, socket) {
