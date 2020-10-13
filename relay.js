@@ -92,11 +92,24 @@ class Relay {
       //console.log("Lambdas recieved!");
       //console.log(req.body);
       let lambdaArray = req.body;
-      this.invokeLambdas(lambdaArray);
+      //this.invokeLambdas(lambdaArray);
 
       for(let i = 0; i < lambdaArray.length; i++) {
         this.lambdaInfos[lambdaArray[i].name] = lambdaArray[i];
       }
+
+      res.send({"status": 200});
+    });
+
+    this.app.post("/relayURLs", (req, res) => {
+      let lambdaArray = req.body;
+      let relayURLs = req.body;
+
+      for(let i = 0; i < lambdaArray.length; i++) {
+        this.lambdaInfos[lambdaArray[i].name] = lambdaArray[i];
+      }
+
+      res.send({"status": 200});
     });
   }
 
