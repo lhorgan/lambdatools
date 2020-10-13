@@ -60,7 +60,7 @@ class Relay {
           this.invokeLambda(this.lambdaInfos[key]);
         }
       }
-      await this.sleep(1000);
+      await this.sleep(5000);
     }
   }
 
