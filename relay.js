@@ -29,7 +29,7 @@ class Relay {
 
     this.lambdaInfos = {};
 
-    this.maxDepth = 5; // max number of lambdas per function name
+    this.maxDepth = 50; // max number of lambdas per function name
 
     this.completedJobs = [];
     this.scale();
