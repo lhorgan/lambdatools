@@ -30,14 +30,16 @@ class ManualRelay extends Relay {
       Payload: JSON.stringify(payload)
     };
 
-    console.log("INVOKING WITH PARAMS ");
-    console.log(params);
+    //console.log("INVOKING WITH PARAMS ");
+    //console.log(params);
 
     lambda.invoke(params, (err, data) => {
       if(err) {
+        console.log("Lambda error response:");
         console.error(err);
       }
       else {
+        console.log("Lambda response:");
         console.log(data);
       }
     });
