@@ -14,6 +14,7 @@ class Relay {
     this.lambdaNamespace = this.io.of("/lambda");
 
     this.lambdaSockets = {};
+    this.lambdaIDs = {};
     this.relayURLs = [];
 
     this.app.use(bodyParser.urlencoded({ extended: false }));
@@ -47,6 +48,9 @@ class Relay {
           this.lambdaSockets[functionName] = new Set();
         }
 
+        let uniqueIPs = this.getUniqueLambdaIDs(functionName);
+        console.log(`We have ${uniqueIPs.size} unique IPs for ${functionName}`);
+
         //console.log("\n\n");
         //console.log("Function Name: " + functionName);
         //console.log(this.lambdaSockets);
@@ -61,8 +65,16 @@ class Relay {
           this.invokeLambda(this.lambdaInfos[key]);
         }
       }
-      await this.sleep(5000);
+      await this.sleep(1000);
     }
+  }
+
+  getUniqueLambdaIDs(functionName) {
+    let ips = new Set();
+    for(let key in this.lambdaIDs[functionName]) {
+      ips.add(this.lambdaIDs[functionName][key]);
+    }
+    return ips;
   }
 
   async sleep(millis) {
@@ -206,10 +218,14 @@ class Relay {
     if(!(functionName in this.lambdaSockets)) {
       this.lambdaSockets[functionName] = new Set();
     }
+    if(!(functionName in this.lambdaIDs)) {
+      this.lambdaIDs[functionName] = {};
+    }
     //console.log("LENGHT: " + this.lambdaSockets[functionName].size);
     //if(this.lambdaSockets[functionName].size < this.maxDepth) {
       //console.log("We have added a socket!");
-      this.lambdaSockets[functionName].add(socket.id);
+    this.lambdaSockets[functionName].add(socket.id);
+    this.lambdaIDs[functionName][socket.id] = socket.handshake.address;
     //}
     //else {
       // we want this function to end itself
@@ -219,6 +235,7 @@ class Relay {
   removeLambdaSocket(functionName, socket) {
     socket.removeAllListeners();
     this.lambdaSockets[functionName].delete(socket.id);
+    delete this.lambdaIDs[functionName][socket.id];
     //this.invokeLambda(this.lambdaInfos[functionName]);
   }
 
