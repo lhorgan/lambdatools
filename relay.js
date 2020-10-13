@@ -57,7 +57,7 @@ class Relay {
         if(this.lambdaSockets[functionName].size < this.maxDepth) {
           personallyLaunchedCount++;
           //console.log("scaling from.... " + this.lambdaSockets[functionName].size + ": " + personallyLaunchedCount);
-          console.log(`Scaling from ${this.lambdaSockets[functionName].size }. I have invoked ${personallyLaunchedCount} Lambdas.`);
+          console.log(`Scaling from ${this.lambdaSockets[functionName].size }. I have invoked ${personallyLaunchedCount} Lambdas.  Max depth is ${this.maxDepth}.`);
           this.invokeLambda(this.lambdaInfos[key]);
         }
       }
