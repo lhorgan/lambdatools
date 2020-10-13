@@ -140,7 +140,7 @@ class Updater {
 }
 
 let updater = new Updater({
-  relayNamespace: "whylord",
-  relayPort: "8000",
-  port: "5101"
+  relayNamespace: "rowboats",
+  relayPort: "5051",
+  port: "5050"
 });

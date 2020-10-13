@@ -13,7 +13,7 @@ class ManualRelay extends Relay {
   constructor() {
     super("8081");
 
-    this.relayURLs = ["http://54.208.5.41:8081"];
+    //this.relayURLs = ["http://54.208.5.41:8081"];
     this.lambdaInfos = {"ExpanderOctober1": {"name": "ExpanderOctober1", "region": "us-east-1"}};
     this.invokeLambdas([this.lambdaInfos["ExpanderOctober1"]]);
   }
