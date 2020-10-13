@@ -104,11 +104,11 @@ class Relay {
     this.app.post("/relayURLs", (req, res) => {
       console.log("Relay URLs receied!");
       console.log(req.body);
-      let relayURLs = req.body.relayURLs;
+      this.relayURLs = req.body.relayURLs;
 
-      for(let i = 0; i < relayURLs.length; i++) {
-        this.lambdaInfos[lambdaArray[i].name] = lambdaArray[i];
-      }
+      // for(let i = 0; i < relayURLs.length; i++) {
+      //   this.relayURLs.push = lambdaArray[i];
+      // }
 
       res.send({"status": 200});
     });
