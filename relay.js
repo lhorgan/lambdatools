@@ -89,9 +89,9 @@ class Relay {
      * expects a list of {name: "LambdaName", region: "LambdaRegion"}
      */
     this.app.post("/lambdas", (req, res) => {
-      //console.log("Lambdas recieved!");
-      //console.log(req.body);
-      let lambdaArray = req.body;
+      console.log("Lambdas recieved!");
+      console.log(req.body.lambdas);
+      let lambdaArray = req.body.lambdas;
       //this.invokeLambdas(lambdaArray);
 
       for(let i = 0; i < lambdaArray.length; i++) {
@@ -102,10 +102,11 @@ class Relay {
     });
 
     this.app.post("/relayURLs", (req, res) => {
-      let lambdaArray = req.body;
-      let relayURLs = req.body;
+      console.log("Relay URLs receied!");
+      console.log(req.body);
+      let relayURLs = req.body.relayURLs;
 
-      for(let i = 0; i < lambdaArray.length; i++) {
+      for(let i = 0; i < relayURLs.length; i++) {
         this.lambdaInfos[lambdaArray[i].name] = lambdaArray[i];
       }
 
