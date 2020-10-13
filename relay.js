@@ -16,6 +16,7 @@ class Relay {
     this.lambdaSockets = {};
     this.relayURLs = [];
 
+    this.app.use(bodyParser.urlencoded({ extended: false }));
     this.app.use(bodyParser.json());
     this.listenHTTP();
     this.listenSocket();
@@ -39,9 +40,20 @@ class Relay {
       for(let key in this.lambdaInfos) {
         //console.log()
         let functionName = this.lambdaInfos[key].name;
-        console.log(functionName);
-        if(functionName in this.lambdaSockets && this.lambdaSockets[functionName].size < this.maxDepth) {
-          //console.log("scaling from.... " + this.lambdaSockets[functionName].size);
+        //console.log(functionName);
+        console.log("\n\n");
+        console.log("Function Name: " + functionName);
+        console.log(this.lambdaSockets);
+        //console.log(this.lambdaSockets[functionName].size);
+        console.log(this.maxDepth);
+        console.log("\n\n");
+
+        if(!(functionName in this.lambdaSockets)) {
+          this.lambdaSockets[functionName] = new Set();
+        }
+
+        if(this.lambdaSockets[functionName].size < this.maxDepth) {
+          console.log("scaling from.... " + this.lambdaSockets[functionName].size);
           this.invokeLambda(this.lambdaInfos[key]);
         }
       }
@@ -90,6 +102,7 @@ class Relay {
      */
     this.app.post("/lambdas", (req, res) => {
       console.log("Lambdas recieved!");
+      console.log(req.body);
       console.log(req.body.lambdas);
       let lambdaArray = req.body.lambdas;
       //this.invokeLambdas(lambdaArray);
@@ -102,7 +115,7 @@ class Relay {
     });
 
     this.app.post("/relayURLs", (req, res) => {
-      console.log("Relay URLs receied!");
+      console.log("Relay URLs received!");
       console.log(req.body);
       this.relayURLs = req.body.relayURLs;
 
