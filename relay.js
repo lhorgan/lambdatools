@@ -30,13 +30,15 @@ class Relay {
 
     this.lambdaInfos = {};
 
-    this.maxDepth = 150; // max number of lambdas per function name
+    this.maxDepth = 800; // max number of lambdas per function name
 
     this.completedJobs = [];
     this.scale();
   }
 
   async scale() {
+    //let sleepTime = this.maxDepth / this.relayURLs.length / this.lambdaTimeout;
+
     let personallyLaunchedCount = 0;
     while(true) {
       for(let key in this.lambdaInfos) {
@@ -65,7 +67,7 @@ class Relay {
           this.invokeLambda(this.lambdaInfos[key]);
         }
       }
-      await this.sleep(1000);
+      await this.sleep(180);
     }
   }
 
@@ -147,7 +149,7 @@ class Relay {
     this.coordinatorNamespace.on("connect", (socket) => {
       //console.log("Coordinator connected");
       if(this.coordinatorSocket) {
-        //console.log("Appears the coordinator reconnected...");
+        console.log("Appears the coordinator reconnected...");
         this.coordinatorSocket.disconnect();
       }
       this.coordinatorSocket = socket;
