@@ -30,7 +30,7 @@ class Relay {
 
     this.lambdaInfos = {};
 
-    this.maxDepth = 800; // max number of lambdas per function name
+    this.maxDepth = 375; // max number of lambdas per function name
 
     this.completedJobs = [];
     this.scale();
@@ -67,7 +67,7 @@ class Relay {
           this.invokeLambda(this.lambdaInfos[key]);
         }
       }
-      await this.sleep(180);
+      await this.sleep(500);
     }
   }
 
@@ -189,7 +189,7 @@ class Relay {
               //console.log(job);
               socket.send({type: "job", job}); 
             }
-            if(this.queue.length < 25 && !this.pendingWorkRequest) {
+            if(this.queue.length < 5000 && !this.pendingWorkRequest) {
               if(!this.coordinatorSocket) {
                 //console.log("coordinator not yet connected....");
                 return;
