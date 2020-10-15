@@ -30,12 +30,12 @@ class TSVDistributor extends Distributor {
     this.outfileWriteStream = fs.createWriteStream(config.outfile, {flags: "a"});
     this.fields = this.readstream.next().toString().trim().split(this.inputSeparator);
 
-    console.log("OUR FIELDS");
-    console.log(this.fields);
+    //console.log("OUR FIELDS");
+    //console.log(this.fields);
 
     if(writeHeader) {
       //console.log("OKAY, GOOD");
-      let headerArr = [];
+      let headerArr = ["status", "error"];
       for(let i = 0; i < this.resultFields.length; i++) {
         headerArr.push(this.resultFields[i]);
       }
@@ -53,8 +53,8 @@ class TSVDistributor extends Distributor {
         }
       }
       this.outfileWriteStream.write(headerArr.join("\t")  + "\r\n");
-      console.log("WRITING THE HEADER");
-      console.log(headerArr);
+      //console.log("WRITING THE HEADER");
+      //console.log(headerArr);
     }
 
     let [readToLine, err] = await h.attempt(h.redisGet(this.client, this.namespace, `admin_readToLine`));
@@ -75,6 +75,7 @@ class TSVDistributor extends Distributor {
   }
 
   seek(readToLine) {
+    console.log("Seeking....");
     let linesRead = 0;
     let line;
     while((linesRead < readToLine) && (line = this.readstream.next())) {
@@ -85,21 +86,26 @@ class TSVDistributor extends Distributor {
 
   async addJobsLoop() {
     let endJobsLoop = false;
+    let totalJobsAdded = 0; // just for bookkeeping
+
     while(!endJobsLoop) {
+      console.log(`TOTAL JOBS ADDED: ${totalJobsAdded}`);
+
       let jobsPendingCount = await this.getJobsCount();
-      let jobsToAdd = 10;//5 * this.jobsPerSecond;
+      let jobsToAdd = 500;//5 * this.jobsPerSecond;
       let jobsAdded = 0;
       let line = null;
 
       //console.log("ADDING JOBS");
-      console.log("PENDING, ADDING:" + jobsPendingCount + ", " + jobsToAdd);
+      //console.log("PENDING, ADDING:" + jobsPendingCount + ", " + jobsToAdd);
 
       if(jobsPendingCount < jobsToAdd) {
         while((jobsAdded < jobsToAdd) && (line = this.readstream.next())) { 
+          console.log("LINE " + line.toString());
           // the && used to be in the other order, but that meant a line got skipped 
           // if the first condition (ie this.readstream.next() was true but the second ws false)
           let rawData = line.toString().trim().split(this.inputSeparator);
-          console.log(rawData);
+          //console.log(rawData);
           let job = {};
           let metadata = {};
           for(let i = 0; i < this.fields.length; i++) {
@@ -111,10 +117,13 @@ class TSVDistributor extends Distributor {
             }
           }
           await this.addJob(job, metadata);
+          totalJobsAdded++;
           jobsAdded++;
           this.linesRead++; // another line has been read
         }
         if(!line) {
+          console.log("LINE (done):");
+          console.log(line);
           this.readAllLines = true;
           endJobsLoop = true;
           console.log("all lines read...");
@@ -147,9 +156,18 @@ class TSVDistributor extends Distributor {
       //console.log(jobsToWrite[i]);
       let result = jobsToWrite[i].result;
       let originalJob = jobsToWrite[i].originalJob;
-      let jobArr = [];
+      let jobArr = [jobsToWrite[i].status];
+      if(jobsToWrite[i].status === "fail") {
+        jobArr.push(jobsToWrite[i].result);
+      }
+      else {
+        jobArr.push("");
+      }
+      
       for(let j = 0; j < this.resultFields.length; j++) {
-        if(result && this.resultFields[j] in result) {
+        console.log(jobsToWrite[i]);
+        console.log("~~~~~");
+        if(jobsToWrite[i].status !== "fail" && result && this.resultFields[j] in result) {
           //console.log("Adding " + this.resultFields[j] + " to the list...");
           jobArr.push(result[this.resultFields[j]]);
         }
@@ -159,9 +177,9 @@ class TSVDistributor extends Distributor {
       }
       //console.log("Neato");
       //console.log(this.metadataFieldsSet);
-      console.log("So, here's the original job: ");
+      //console.log("So, here's the original job: ");
       //console.log(this.metadataFieldsSet);
-      console.log(JSON.stringify(originalJob));
+      //console.log(JSON.stringify(originalJob));
       for(let j = 0; j < this.fields.length; j++) {
         //console.log(this.fields[j]);
         if(this.metadataFieldsSet.has(this.fields[j])) {
@@ -213,10 +231,10 @@ let d = new TSVDistributor({
   retryCount: 3,
   lambdaNames: [{name: "ExpanderOctober1", region: "us-east-1"}],
   jobsPerSecond: 1,
-  namespace: "abctest",
-  relayNamespace: "whylord",
-  inputFile: "urls.tsv",
-  outfile: "results2020.tsv", 
+  namespace: "rowboats",
+  relayNamespace: "rowboats",
+  inputFile: "/home/admin/bfd/august2020.tsv",
+  outfile: "/home/admin/bfd/aug2020exp.tsv", 
   inputSeparator: "\t",
   outputSeparator: "\t",
   metadataFields: ["id", "date", "id2", "id3", "name", "state", "id4", "voter", "id5", "gender", "ethnicity", "party"],
@@ -225,7 +243,14 @@ let d = new TSVDistributor({
   writeMetadata: true,
   relayPort: "8081"
 });
-d.getRelays();
+
+(async () => {
+  //await d.getRelays();
+  //console.log("HERE ARE THE RELAYS");
+  //console.log(Object.keys(d.relaySockets));
+  //d.sendLambdas();
+  //d.sendRelays();
+})();
 // setTimeout(() => {
 //   d.writeJobs([{"originalJob":{"job":{"handle":"@michaelloget","state":"New York","gender":"male","age":"27","race":"African American","language":"English","uses_twitter":"no or no answer","which_handle":"3","original_lacked_at":"TRUE","original_had_space":"FALSE","masked_id":"11847","retrieval_status":"success","handle_as_per_twitter":"MichaelLoget","name_as_per_twitter":"Michael Loget","location_as_per_twitter":"","tweet_count":"23","following":"63","followers":"12"},"metadata":{},"id":"9c4f2168a4f5298665921fd2d4e31d74"},"result":{"dummy":0.6400064357611768},"id":"9c4f2168a4f5298665921fd2d4e31d74"}]);
 // }, 2000);

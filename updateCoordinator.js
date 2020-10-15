@@ -22,7 +22,7 @@ class Updater {
     this.relayIO = this.io.of("/relay");
 
     this.port = config.port;
-    this.scriptFileName = "./ec2_dist_config.sh";
+    this.scriptFileName = "./relayUpdate.sh";
 
     this.ec2Util = new EC2();
 
