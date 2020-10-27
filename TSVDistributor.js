@@ -233,11 +233,11 @@ let d = new TSVDistributor({
   jobsPerSecond: 1,
   namespace: "rowboats",
   relayNamespace: "rowboats",
-  inputFile: "/home/admin/bfd/august2020.tsv",
-  outfile: "/home/admin/bfd/aug2020exp.tsv", 
+  inputFile: "/home/admin/bfd/sep2020.tsv", //"/home/admin/bfd/august2020.tsv",
+  outfile: "/home/admin/bfd/sep2020exp.tsv", //"/home/admin/bfd/aug2020exp.tsv", 
   inputSeparator: "\t",
   outputSeparator: "\t",
-  metadataFields: ["id", "date", "id2", "id3", "name", "state", "id4", "voter", "id5", "gender", "ethnicity", "party"],
+  metadataFields: [],
   resultFields: ["expandedURL"],
   writeOriginalJob: true,
   writeMetadata: true,
@@ -245,9 +245,9 @@ let d = new TSVDistributor({
 });
 
 (async () => {
-  //await d.getRelays();
-  //console.log("HERE ARE THE RELAYS");
-  //console.log(Object.keys(d.relaySockets));
+  await d.getRelays();
+  console.log("HERE ARE THE RELAYS");
+  console.log(Object.keys(d.relaySockets));
   //d.sendLambdas();
   //d.sendRelays();
 })();

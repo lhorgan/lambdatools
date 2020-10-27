@@ -135,7 +135,7 @@ class Distributor {
   }
 
   async loadBackedUpJobs() {
-    //console.log("Loading backed up jobs...");
+    console.log("Loading backed up jobs...");
 
     //await h.redisSetAdd(this.client, this.namespace, "jobsInFlight", job.id);
 
@@ -174,17 +174,17 @@ class Distributor {
     //this.sendLambdas(relayURL);
     //this.sendRelays(relayURL);
 
-    //console.log(`opening a connection to ${relayURL}...`);
+    console.log(`opening a connection to ${relayURL}...`);
     let socket = this.io(`${relayURL}/coordinator`);
     socket.on('connect', function(){
-      //console.log("WE ARE CONNECTED!");
+      console.log("WE ARE CONNECTED!");
     });
     this.relaySockets[relayURL] = socket;
     let sendingWork = false;
 
     socket.on("message", async (message) => {
       //console.log("message received");
-      //console.log(message);
+      console.log(message);
       if(message.type === "moreWork" && !sendingWork) {
         //console.log("we need to send more work to relay " + relayURL);
         sendingWork = true;
@@ -328,7 +328,7 @@ class Distributor {
   }
 
   sendRelays(relayURL) { // make the relay aware of all its bretheren
-    //console.log("THE URL WE ARE FETCHING " + relayURL);
+    console.log("THE URL WE ARE FETCHING " + relayURL);
     //console.log("THE RELAYS WE HAVE");
     //console.log(Object.keys(this.relaySockets));
     fetch(relayURL + "/relayURLs", {

@@ -47,7 +47,7 @@ class Updater {
     let scriptFileName = `./update_script_${Date.now()}`;
     //console.log("SCRIPT: " + script);
 
-    fs.writeFileSync(scriptFileName, script);
+fs.writeFileSync(scriptFileName, script);
     let scriptProc = exec(`sh ${scriptFileName}`);
     scriptProc.stdout.on("data", (data)=>{
       //console.log(data);
