@@ -109,6 +109,12 @@ class CLI {
         name: "lifetime",
         message: "Timeout (seconds):"
       },
+      runtime: {
+        type: "list",
+        name: "runtime",
+        message: "Runtime:",
+        choices: ["nodejs12.x", "nodejs10.x", "python3.8", "python3.8", "python3.7"]
+      },
       name: {
         type: "input",
         name: "name",
@@ -173,6 +179,7 @@ class CLI {
     console.log("Lambda Create Menu:");
     let name = await inquirer.prompt(this.lambda.name);
     let description = await inquirer.prompt(this.lambda.description);
+    let runtime = await inquirer.prompt(this.lambda.runtime);
     let codePath = await inquirer.prompt(this.lambda.path);
     console.log(codePath);
     let bucketName = await inquirer.prompt(this.lambda.bucketName);
@@ -206,7 +213,7 @@ class CLI {
       FunctionName: name.name, /* required */
       Handler: 'index.handler', /* required */
       Role: 'arn:aws:iam::252108313661:role/LambdaNinja', /* required */
-      Runtime: "nodejs12.x",
+      Runtime: runtime.runtime,
       Description: description.description,
       MemorySize: memory.memory,
       Publish: true,
