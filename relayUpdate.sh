@@ -12,7 +12,7 @@
 # # grep maxDepth relay.js;
 
 # pm2 restart ManualRelay;
-pm2 flush ManualRelay;
+#pm2 flush ManualRelay;
 
 pm2 stop ManualRelay;
 #pm2 restart ManualRelay;

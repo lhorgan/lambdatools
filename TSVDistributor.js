@@ -101,7 +101,7 @@ class TSVDistributor extends Distributor {
 
       if(jobsPendingCount < jobsToAdd) {
         while((jobsAdded < jobsToAdd) && (line = this.readstream.next())) { 
-          console.log("LINE " + line.toString());
+          console.log("LINE " + line.toString() + " " + this.linesRead);
           // the && used to be in the other order, but that meant a line got skipped 
           // if the first condition (ie this.readstream.next() was true but the second ws false)
           let rawData = line.toString().trim().split(this.inputSeparator);
@@ -229,16 +229,16 @@ class TSVDistributor extends Distributor {
 
 let d = new TSVDistributor({
   retryCount: 3,
-  lambdaNames: [{name: "ExpanderOctober1", region: "us-east-1"}],
+  lambdaNames: [{name: "blurble", region: "us-east-1"}],
   jobsPerSecond: 1,
   namespace: "rowboats",
   relayNamespace: "rowboats",
-  inputFile: "/home/admin/bfd/sep2020.tsv", //"/home/admin/bfd/august2020.tsv",
-  outfile: "/home/admin/bfd/sep2020exp.tsv", //"/home/admin/bfd/aug2020exp.tsv", 
+  inputFile: "/home/admin/bfd/blurburls.tsv", //"/home/admin/bfd/august2020.tsv",
+  outfile: "/home/admin/bfd/blurbresults3.tsv", //"/home/admin/bfd/aug2020exp.tsv", 
   inputSeparator: "\t",
   outputSeparator: "\t",
   metadataFields: [],
-  resultFields: ["expandedURL"],
+  resultFields: ["results"],
   writeOriginalJob: true,
   writeMetadata: true,
   relayPort: "8081"
