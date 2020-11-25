@@ -212,45 +212,25 @@ class TSVDistributor extends Distributor {
 
 // let d = new TSVDistributor({
 //   retryCount: 3,
-//   lambdaNames: [{name: "TestFunc120", region: "us-east-1"}],
+//   lambdaNames: [{name: "ExpanderOctober1", region: "us-east-1"}],
 //   jobsPerSecond: 1,
-//   namespace: "abctest",
-//   relayNamespace: "whylord",
-//   inputFile: "small.tsv",
-//   outfile: "results.tsv", 
+//   namespace: "rowboats",
+//   relayNamespace: "rowboats",
+//   inputFile: "/home/luke/Documents/lazer/lds/sep2020.tsv", //"/home/admin/bfd/august2020.tsv",
+//   outfile: "/home/luke/Documents/sep2020exp.tsv", //"/home/admin/bfd/aug2020exp.tsv", 
 //   inputSeparator: "\t",
 //   outputSeparator: "\t",
-//   metadataFields: ["gender", "age", "race", "language", "uses_twitter", "which_handle", "original_lacked_at", "original_had_space", "masked_id", "retrieval_status"],
-//   resultFields: ["dummy"],
+//   metadataFields: [],
+//   resultFields: ["expandedURL"],
 //   writeOriginalJob: true,
-//   writeMetadata: false,
+//   writeMetadata: true,
 //   relayPort: "8081"
 // });
 
-let d = new TSVDistributor({
-  retryCount: 3,
-  lambdaNames: [{name: "ExpanderOctober1", region: "us-east-1"}],
-  jobsPerSecond: 1,
-  namespace: "rowboats",
-  relayNamespace: "rowboats",
-  inputFile: "/home/admin/bfd/sep2020.tsv", //"/home/admin/bfd/august2020.tsv",
-  outfile: "/home/admin/bfd/sep2020exp.tsv", //"/home/admin/bfd/aug2020exp.tsv", 
-  inputSeparator: "\t",
-  outputSeparator: "\t",
-  metadataFields: [],
-  resultFields: ["expandedURL"],
-  writeOriginalJob: true,
-  writeMetadata: true,
-  relayPort: "8081"
-});
+// (async () => {
+//   await d.getRelays();
+//   console.log("HERE ARE THE RELAYS");
+//   console.log(Object.keys(d.relaySockets));
+// })();
 
-(async () => {
-  await d.getRelays();
-  console.log("HERE ARE THE RELAYS");
-  console.log(Object.keys(d.relaySockets));
-  //d.sendLambdas();
-  //d.sendRelays();
-})();
-// setTimeout(() => {
-//   d.writeJobs([{"originalJob":{"job":{"handle":"@michaelloget","state":"New York","gender":"male","age":"27","race":"African American","language":"English","uses_twitter":"no or no answer","which_handle":"3","original_lacked_at":"TRUE","original_had_space":"FALSE","masked_id":"11847","retrieval_status":"success","handle_as_per_twitter":"MichaelLoget","name_as_per_twitter":"Michael Loget","location_as_per_twitter":"","tweet_count":"23","following":"63","followers":"12"},"metadata":{},"id":"9c4f2168a4f5298665921fd2d4e31d74"},"result":{"dummy":0.6400064357611768},"id":"9c4f2168a4f5298665921fd2d4e31d74"}]);
-// }, 2000);
+exports.TSVDistributor = TSVDistributor;

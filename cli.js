@@ -113,7 +113,7 @@ class CLI {
         type: "list",
         name: "runtime",
         message: "Runtime:",
-        choices: ["nodejs12.x", "nodejs10.x", "python3.8", "python3.8", "python3.7"]
+        choices: ["nodejs12.x", "nodejs10.x", "python3.8", "python3.7"]
       },
       name: {
         type: "input",
@@ -246,7 +246,7 @@ class CLI {
 
       let launcher = new LambdaLauncher();
 
-      let outzip = "/home/luke/Documents/lazer/lds/testzip.zip";
+      let outzip = "/home/luke/Documents/lazer/lds/testzip2.zip";
       let [,zipErr] = await h.attempt(launcher.zipDirectory(codePath.path, outzip));
       if(zipErr) {
         console.error(zipErr);

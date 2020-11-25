@@ -19,30 +19,30 @@ class ManualRelay extends Relay {
   }
 
   invokeLambda(lambdaInfo) {
-    console.log("We are invoking a Lambda!");
+    // console.log("We are invoking a Lambda!");
 
-    AWS.config.update({region: lambdaInfo.region});
-    var lambda = new AWS.Lambda();
-    let payload = {"relayURLs": this.relayURLs};
+    // AWS.config.update({region: lambdaInfo.region});
+    // var lambda = new AWS.Lambda();
+    // let payload = {"relayURLs": this.relayURLs};
 
-    let params = {
-      FunctionName: lambdaInfo.name,
-      Payload: JSON.stringify(payload)
-    };
+    // let params = {
+    //   FunctionName: lambdaInfo.name,
+    //   Payload: JSON.stringify(payload)
+    // };
 
-    //console.log("INVOKING WITH PARAMS ");
-    //console.log(params);
+    // //console.log("INVOKING WITH PARAMS ");
+    // //console.log(params);
 
-    lambda.invoke(params, (err, data) => {
-      if(err) {
-        console.log("Lambda error response:");
-        console.error(err);
-      }
-      else {
-        console.log("Lambda response:");
-        console.log(data);
-      }
-    });
+    // lambda.invoke(params, (err, data) => {
+    //   if(err) {
+    //     console.log("Lambda error response:");
+    //     console.error(err);
+    //   }
+    //   else {
+    //     console.log("Lambda response:");
+    //     console.log(data);
+    //   }
+    // });
   }
 }
 

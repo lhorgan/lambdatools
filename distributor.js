@@ -437,36 +437,44 @@ class Distributor {
     return jobID;
   }
 
+  // async getRelays() {
+  //   let [instances, err] = await h.attempt(this.ec2Util.describeInstances([
+  //     {
+  //       Name: `tag:Name`,
+  //       Values: [`${this.relayNamespace}-relay*`]
+  //     },
+  //     {
+  //       Name: 'instance-state-name',
+  //       Values: ["running"]
+  //     },
+  //   ]));
+
+  //   if(err) {
+  //     console.error("Could not load relays.  Aborting.");
+  //     return;
+  //   }
+
+  //   for(let i = 0; i < instances.Reservations.length; i++) {
+  //     for(let j = 0; j < instances.Reservations[i].Instances.length; j++) {
+  //       let instance = instances.Reservations[i].Instances[j];
+  //       //console.log(`Type: ${instance.InstanceType}`);
+  //       //console.log(`Private IP: ${instance.PrivateIpAddress}`);
+  //       //console.log(`Public URL: ${instance.PublicDnsName || 'None'}`);
+  //       //console.log("\n");
+
+  //       //this.addRelaySocket(`http://${instance.PrivateIpAddress}:${this.relayPort}`);
+  //       this.addRelaySocket(`http://${instance.PublicDnsName}:${this.relayPort}`);
+  //     }
+  //   }
+
+  //   for(let relayURL in this.relaySockets) {
+  //     this.sendLambdas(relayURL);
+  //     this.sendRelays(relayURL);
+  //   }
+  // }
+
   async getRelays() {
-    let [instances, err] = await h.attempt(this.ec2Util.describeInstances([
-      {
-        Name: `tag:Name`,
-        Values: [`${this.relayNamespace}-relay*`]
-      },
-      {
-        Name: 'instance-state-name',
-        Values: ["running"]
-      },
-    ]));
-
-    if(err) {
-      console.error("Could not load relays.  Aborting.");
-      return;
-    }
-
-    for(let i = 0; i < instances.Reservations.length; i++) {
-      for(let j = 0; j < instances.Reservations[i].Instances.length; j++) {
-        let instance = instances.Reservations[i].Instances[j];
-        //console.log(`Type: ${instance.InstanceType}`);
-        //console.log(`Private IP: ${instance.PrivateIpAddress}`);
-        //console.log(`Public URL: ${instance.PublicDnsName || 'None'}`);
-        //console.log("\n");
-
-        //this.addRelaySocket(`http://${instance.PrivateIpAddress}:${this.relayPort}`);
-        this.addRelaySocket(`http://${instance.PublicDnsName}:${this.relayPort}`);
-      }
-    }
-
+    this.addRelaySocket(`http://localhost:${this.relayPort}`);
     for(let relayURL in this.relaySockets) {
       this.sendLambdas(relayURL);
       this.sendRelays(relayURL);

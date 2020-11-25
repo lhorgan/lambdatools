@@ -9,7 +9,7 @@ class Relay {
     this.AWS = require("aws-sdk");
 
     this.server = require('http').createServer(this.app);
-    this.io =  require('socket.io')(this.server);
+    this.io = require('socket.io')(this.server);
     this.coordinatorNamespace = this.io.of("/coordinator");
     this.lambdaNamespace = this.io.of("/lambda");
 
@@ -51,7 +51,7 @@ class Relay {
         }
 
         let uniqueIPs = this.getUniqueLambdaIDs(functionName);
-        console.log(`We have ${uniqueIPs.size} unique IPs for ${functionName}`);
+        //console.log(`We have ${uniqueIPs.size} unique IPs for ${functionName}`);
 
         //console.log("\n\n");
         //console.log("Function Name: " + functionName);
@@ -63,7 +63,7 @@ class Relay {
         if(this.lambdaSockets[functionName].size < this.maxDepth) {
           personallyLaunchedCount++;
           //console.log("scaling from.... " + this.lambdaSockets[functionName].size + ": " + personallyLaunchedCount);
-          console.log(`Scaling from ${this.lambdaSockets[functionName].size }. I have invoked ${personallyLaunchedCount} Lambdas.  Max depth is ${this.maxDepth}.`);
+          //console.log(`Scaling from ${this.lambdaSockets[functionName].size }. I have invoked ${personallyLaunchedCount} Lambdas.  Max depth is ${this.maxDepth}.`);
           this.invokeLambda(this.lambdaInfos[key]);
         }
       }
@@ -163,8 +163,10 @@ class Relay {
     });
 
     this.lambdaNamespace.on("connect", (socket) => {
+      //console.log(socket.query);
+      //console.log(socket);
       if(socket.handshake.query.name) {
-        //console.log("socket " + socket.id + " connected with ip " + socket.handshake.address);
+        console.log("socket " + socket.id + " connected with ip " + socket.handshake.address);
         let sip = socket.handshake.address;
         console.log(`Socket connected with IP ${sip}`);
         let functionName = socket.handshake.query.name;
@@ -172,20 +174,20 @@ class Relay {
         this.addLambdaSocket(functionName, socket);
 
         socket.on("disconnect", () => {
-          //console.log("socket " + socket.id + " disconnected");
+          console.log("socket " + socket.id + " disconnected");
           console.log(`Socket with IP ${sip} disconnected.`);
           this.removeLambdaSocket(functionName, socket);
         });
   
         socket.on("message", (message) => {
-          //console.log("received a message on socket " + socket.id);
-          //console.log(message);
+          console.log("received a message on socket " + socket.id);
+          console.log(message);
           if(message.type === "moreWork") {
             //console.log(`We need to send more work to ${socket.id} of ${functionName} fame.`);
             let job = this.queue.pop();
             //console.log("POPPED JOB " + JSON.stringify(job));
             if(job) {
-              //console.log("sending a job to " + socket.id);
+              console.log("sending a job to " + socket.id);
               //console.log(job);
               socket.send({type: "job", job}); 
             }
@@ -202,8 +204,8 @@ class Relay {
             }
           }
           else if(message.type === "jobComplete") {
-            //console.log("JOB COMPLETED!");
-            //console.log(JSON.stringify(message));
+            console.log("JOB COMPLETED!");
+            console.log(JSON.stringify(message));
             this.completedJobs.push(message);
           }
         });
