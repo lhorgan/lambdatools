@@ -14,7 +14,12 @@ class TweetRelay extends Relay {
     super("8081");
 
     this.maxDepth = 1;
-    this.delayBetweenJobs = 5000;
+    this.lambdasInService = new Set();
+
+    // we are targeting 1 job every minute on each Lambda we have
+    // so, if we have 500 Lambdas, we should target a delay of 60000 / 500 = 120ms
+    // split between ten relays, that's a delay of 1.2s
+    this.delayBetweenJobs = (60000 / this.lambdasInService.size) * 10;
 
     this.mainLoop();
   }
@@ -27,9 +32,9 @@ class TweetRelay extends Relay {
     while(true) {
       console.log(this.lambdaInfos);
       
-      let randomLambda = this.randomChoice(Object.keys(this.lambdaInfos));
-      let lambdaInfo = this.lambdaInfos[randomLambda];
-      console.log(lambdaInfo);
+      // let randomLambda = this.randomChoice(Object.keys(this.lambdaInfos));
+      // let lambdaInfo = this.lambdaInfos[randomLambda];
+      // console.log(lambdaInfo);
 
       if(this.queue.length < 20 && this.coordinatorSocket) {
         this.coordinatorSocket.send({type: "moreWork"});
@@ -38,6 +43,8 @@ class TweetRelay extends Relay {
       let job = this.queue.pop();
       console.log("POPPED JOB " + JSON.stringify(job));
       if(job) {
+        let lambdaInfo = job.job.lambdaInfo;
+        console.log(lambdaInfo);
         this.invokeLambda(lambdaInfo, job);
       }
       await this.sleep(this.delayBetweenJobs);
